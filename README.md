@@ -1,6 +1,6 @@
-# FantasyWorld
+# Valdenmoor
 
-AI destekli fantasy rol yapma uygulaması. React Native Web frontend + FastAPI backend + Supabase + Gemini.
+AI destekli krallık yönetim RPG'si. React Native Web frontend + FastAPI backend + Supabase + Gemini.
 
 ## Hızlı başlangıç (Windows)
 

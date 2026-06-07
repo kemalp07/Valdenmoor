@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Valdenmoor",
-    "slug": "fantasyworld",
+    "slug": "valdenmoor",
     "version": "1.0.0",
     "orientation": "portrait",
     "platforms": [
@@ -9,7 +9,7 @@
       "android",
       "web"
     ],
-    "scheme": "hpgwarts",
+    "scheme": "valdenmoor",
     "android": {
       "softwareKeyboardLayoutMode": "resize"
     },

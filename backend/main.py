@@ -1,3 +1,4 @@
+import logging
 import sys
 from pathlib import Path
 
@@ -11,14 +12,14 @@ import os
 from routers.chat import router as chat_router
 from routers.locations import router as locations_router
 
-from services.world_simulation import start_organic_scheduler
+logging.basicConfig(
+    level=logging.WARNING,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+logging.getLogger("services.relationship_service").setLevel(logging.INFO)
+logging.getLogger("services.world_simulation").setLevel(logging.INFO)
 
 app = FastAPI()
-
-
-@app.on_event("startup")
-async def startup_event():
-    start_organic_scheduler()
 
 app.add_middleware(
     CORSMiddleware,
@@ -33,7 +34,7 @@ app.include_router(locations_router, prefix="/api")
 
 @app.get("/")
 async def root():
-    return {"status": "fantasyworld backend ok"}
+    return {"status": "valdenmoor backend ok"}
 
 
 @app.get("/debug/env-status")

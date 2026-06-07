@@ -130,6 +130,7 @@ CREATE TABLE game_state (
   last_activity_at TIMESTAMP DEFAULT NOW(),
   points_floor_started_at TIMESTAMP DEFAULT NOW(),
   player_house TEXT DEFAULT 'gryffindor' CHECK (player_house IN ('gryffindor', 'hufflepuff', 'ravenclaw', 'slytherin')),
+  pending_injection TEXT DEFAULT NULL,
   updated_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -146,7 +147,10 @@ CREATE TABLE missed_class_log (
   UNIQUE(session_id, subject, week, day)
 );
 
--- Karakter ilişki skorları (gizli, system prompt'a enjekte edilir)
+-- DEPRECATED: Bu tablo kullanılmıyor.
+-- Aktif tablo: character_relations (session bazlı loyalty skorları)
+-- Supabase'de temizlemek için: DROP TABLE IF EXISTS character_relationships;
+/*
 CREATE TABLE character_relationships (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   session_id TEXT NOT NULL,
@@ -157,3 +161,4 @@ CREATE TABLE character_relationships (
   updated_at TIMESTAMP DEFAULT NOW(),
   UNIQUE(session_id, character_name)
 );
+*/

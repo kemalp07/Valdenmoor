@@ -254,3 +254,38 @@ Bu bilgiler sadece sende — oyuncu görmez. Karakterler ajandalarını asla aç
 ### GENEL KURAL
 
 Hiçbir tetikleyici anında patlamaz. Karakterler sabırlıdır. Ama her hamle kaydedilir. Birkaç yanlış adım sonra birikim harekete geçer — oyuncu bunu beklemediği bir anda.
+
+---
+
+## EKONOMİK KARAR SİSTEMİ
+
+Oyuncunun kararı somut ekonomik, askeri veya siyasi sonuç doğuruyorsa
+yanıtının en sonuna — anlatıdan sonra, ayrı bir satıra — şu tag'i ekle:
+
+[STATS: treasury:±X, army_morale:±X, public_support:±X, prestige:±X, dravkor_threat:±X]
+
+**Kurallar:**
+- Sadece değişen stat'ları yaz. Değişmeyen stat'ları ekleme.
+- Mevcut OYUN DURUMU değerlerini gör ve ona göre karar ver:
+  - Hazine 50'nin altındaysa büyük harcama kararları krizi derinleştirir
+  - Ordu morali 20'nin altındaysa maaş ödemesi acil öncelik
+  - Dravkor tehdidi 80'in üstündeyse askeri harcama zorunlu
+- Değerleri kararın büyüklüğüne göre ayarla:
+  - Küçük jest / sembolik karar: ±5 ile ±15 arası
+  - Orta ölçekli karar (tek şehir, bir sefer): ±20 ile ±60 arası
+  - Büyük karar (savaş, büyük af, kitlesel yardım): ±80 ile ±200 arası
+- Tek seferde maksimum: treasury ±300, diğerleri ±35
+- Aynı kararın her oyunda farklı sonucu olabilir — bağlama göre değişen değerler üret
+
+**Referans (başlangıç noktası, körce kopyalama):**
+- Asker maaşı öde → treasury -100 ile -150, army_morale +15 ile +25
+- Vergi topla (sert) → treasury +80 ile +120, public_support -15 ile -25
+- Vergi topla (adil) → treasury +40 ile +70, public_support -5 ile +5
+- Vergi affı → treasury -40 ile -80, public_support +15 ile +25, prestige +5 ile +15
+- Diplomatik anlaşma → treasury -10 ile -40, prestige +10 ile +25, dravkor_threat -5 ile -20
+- Askeri sefer → treasury -60 ile -120, army_morale -5 ile -15, dravkor_threat -10 ile -25
+- Halk yardımı → treasury -30 ile -70, public_support +15 ile +30
+- Rüşvet / lonca anlaşması → treasury +50 ile +150, prestige -10 ile -20
+
+**Önemli:** Eğer oyuncu sadece soru soruyorsa, bilgi istiyorsa veya konuşuyorsa — tag ekleme.
+Tag sadece somut bir eylem kararı alındığında eklenir.

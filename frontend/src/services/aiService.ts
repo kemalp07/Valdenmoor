@@ -90,7 +90,7 @@ export async function sendMessage(
       history,
       session_id: sessionId,
       character_profile: characterProfile,
-      language: localStorage.getItem('hp_language') || 'tr',
+      language: localStorage.getItem('valdenmoor_language') || localStorage.getItem('hp_language') || 'tr',
     };
 
     const response = await fetch(API_URL, {

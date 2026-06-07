@@ -1,7 +1,6 @@
 """
 Valdenmoor Dünya Simülasyonu
-- Her mesaj sonrası küçük stat erimesi
-- Dravkor tehdit artışı
+- Karar bazlı ekonomi (AI STATS tag)
 - Rastgele dünya olayları
 """
 
@@ -11,18 +10,6 @@ import random
 from db.supabase_client import supabase
 
 logger = logging.getLogger(__name__)
-
-
-# ── Her mesajda uygulanan pasif stat değişimleri ──────────────────────────
-
-_PASSIVE_DECAY = {
-    # Hazine her turda biraz erir (ordu maaşı, saray giderleri)
-    "treasury": -8,
-    # Ordu morali maaş alamadığı için yavaş düşüyor
-    "army_morale": -1,
-    # Dravkor tehdit her turda biraz artıyor (sınır provokasyonları)
-    "dravkor_threat": +1,
-}
 
 _STAT_BOUNDS = {
     "treasury": (0, 1000),
@@ -36,38 +23,6 @@ _STAT_BOUNDS = {
 def _clamp(value: int, key: str) -> int:
     lo, hi = _STAT_BOUNDS.get(key, (0, 100))
     return max(lo, min(hi, value))
-
-
-def apply_passive_decay(session_id: str) -> dict:
-    """Her mesaj sonrası pasif stat erimesini uygula. Değişen statları döner."""
-    if not supabase:
-        return {}
-    try:
-        resp = (
-            supabase.table("game_stats")
-            .select("treasury,army_morale,public_support,prestige,dravkor_threat")
-            .eq("session_id", session_id)
-            .execute()
-        )
-        if not resp.data:
-            return {}
-
-        current = resp.data[0]
-        updates = {}
-
-        for key, delta in _PASSIVE_DECAY.items():
-            new_val = _clamp(current.get(key, 50) + delta, key)
-            if new_val != current.get(key):
-                updates[key] = new_val
-
-        if updates:
-            supabase.table("game_stats").update(updates).eq("session_id", session_id).execute()
-            logger.info(f"[{session_id}] Passive decay applied: {updates}")
-
-        return updates
-    except Exception as e:
-        logger.error(f"apply_passive_decay error: {e}")
-        return {}
 
 
 # ── Rastgele dünya olayları ────────────────────────────────────────────────
@@ -142,6 +97,85 @@ _WORLD_EVENTS = [
         ),
         "stats_delta": {},
     },
+    {
+        "id": "tax_collection_due",
+        "condition": lambda s: s.get("treasury", 500) < 400,
+        "chance": 0.4,
+        "narrator_injection": (
+            "[NARRATOR]\n"
+            "Hazine Bakanı Sorn sabah divanına belgelerle geldi. "
+            "Bu çeyreğin vergi tahsilatı için köy muhtarlarından haberler var — "
+            "bazı bölgeler ödemeyi geciktiriyor, bazıları erken göndermiş. "
+            "Tahsilat kararını {player_name} verecek.\n\n"
+            "**Seçenekler:** Sert tahsilat emri ver, adil ama kararlı ol, ya da bu dönem ertele."
+        ),
+    },
+    {
+        "id": "merchant_guild_offer",
+        "condition": lambda s: s.get("treasury", 500) < 300,
+        "chance": 0.3,
+        "narrator_injection": (
+            "[NARRATOR]\n"
+            "Varethis'ten Lonca Başkanı Doran, sarayın önünde bekliyor. "
+            "Hazine sıkıntısı kulağına gitmiş — elinde bir kredi teklifi var. "
+            "Ama Doran'ın teklifleri her zaman bir bedelle gelir.\n\n"
+            "[LORD_ALDRIC_VANE]\n"
+            "\"Majeste, lonca adamlarına borçlanmak tehlikeli. "
+            "Ama seçeneklerimiz azalıyor — karar sizin.\""
+        ),
+    },
+    {
+        "id": "army_pay_overdue",
+        "condition": lambda s: s.get("army_morale", 50) < 30 and s.get("treasury", 500) > 100,
+        "chance": 0.5,
+        "narrator_injection": (
+            "[NARRATOR]\n"
+            "General Caelan Voss'tan acil mesaj: Ashenmoor garnizonundaki askerler "
+            "iki haftadır maaş almadı. Voss, durumun kontrolden çıkmadan önce "
+            "hazineden ödeme yapılmasını talep ediyor. Tam ödeme yaklaşık 120-150 altın tutacak.\n\n"
+            "[GENERAL_CAELAN_VOSS]\n"
+            "\"Majeste, adamlarım sizin için savaşıyor. "
+            "Ailelerine ekmek götüremezlerse bu sadakat ne kadar sürer?\""
+        ),
+    },
+    {
+        "id": "northern_mine_report",
+        "condition": lambda s: s.get("dravkor_threat", 0) < 50,
+        "chance": 0.25,
+        "narrator_injection": (
+            "[NARRATOR]\n"
+            "Kuzey maden ocaklarından Usta Brennan rapor gönderdi: "
+            "Son iki ayda çıkarılan maden normalin üstünde. "
+            "Fazla üretimi krallık adına işletebilir ya da özel tüccarlara satabilirsiniz. "
+            "Her iki seçeneğin de hazine ve halk üzerinde farklı etkileri olacak."
+        ),
+    },
+    {
+        "id": "selmara_trade_disruption",
+        "condition": lambda s: s.get("prestige", 30) < 35,
+        "chance": 0.3,
+        "narrator_injection": (
+            "[NARRATOR]\n"
+            "Selmara ticaret yolunda bir sorun var: Elçi Zara, "
+            "Kral Edwyn'in bu yıl ticaret vergisini artırdığını bildirdi. "
+            "Valdenmoor ya bu artışı kabul edecek ya da alternatif yol arayacak. "
+            "Her iki seçenek de hazineyi farklı etkiler.\n\n"
+            "[ENVOY_ZARA]\n"
+            "\"Kral Edwyn müzakereye açık — ama zamanımız kısıtlı.\""
+        ),
+    },
+    {
+        "id": "harvest_surplus",
+        "condition": lambda s: s.get("public_support", 50) > 55 and s.get("treasury", 500) < 500,
+        "chance": 0.2,
+        "narrator_injection": (
+            "[NARRATOR]\n"
+            "Bu yıl hasat beklenenden iyi geçti. "
+            "Köy temsilcileri fazla ürünü sarayın ambarlarına bağışlamak istiyor — "
+            "karşılığında küçük bir vergi indirimi talep ediyorlar. "
+            "Anlaşırsanız hazineye dolaylı katkı sağlar, halk desteği artar."
+        ),
+    },
 ]
 
 
@@ -171,8 +205,7 @@ def check_world_events(session_id: str) -> dict | None:
         if not eligible:
             return None
 
-        # En kritik olayı seç (basit önceliklendirme: listede öne yakın)
-        event = eligible[0]
+        event = random.choice(eligible)
 
         # Stats delta uygula
         if event.get("stats_delta"):
@@ -200,20 +233,7 @@ async def run_point_simulation(
     week: int = 1,
     day: int = 1,
 ) -> dict:
-    """Pasif decay uygula, dünya olaylarını kontrol et."""
-    apply_passive_decay(session_id)
+    """Dünya olaylarını kontrol et."""
     event = check_world_events(session_id)
     narrator_injection = event["narrator_injection"] if event else None
     return {"missed": [], "surprise": None, "narrator_injection": narrator_injection}
-
-
-async def extract_time_from_response(session_id: str, ai_response: str):
-    pass
-
-
-async def extract_inventory_and_location(session_id: str, ai_response: str):
-    pass
-
-
-def start_organic_scheduler():
-    pass

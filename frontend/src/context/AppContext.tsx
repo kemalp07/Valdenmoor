@@ -44,30 +44,35 @@ export type AppContextType = {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-export const CHARACTERS_STORAGE_KEY = 'fantasy_characters';
-export const ACTIVE_CHARACTER_STORAGE_KEY = 'fantasy_active_character_id';
-const KNOWN_SESSIONS_KEY = 'fantasy_known_session_ids';
+export const CHARACTERS_STORAGE_KEY = 'valdenmoor_characters';
+export const ACTIVE_CHARACTER_STORAGE_KEY = 'valdenmoor_active_character_id';
+const KNOWN_SESSIONS_KEY = 'valdenmoor_known_session_ids';
 
-const LEGACY_CHARACTERS_KEY = 'hp_characters';
-const LEGACY_ACTIVE_CHARACTER_KEY = 'hp_active_character_id';
-const LEGACY_KNOWN_SESSIONS_KEY = 'hp_known_session_ids';
+const LEGACY_CHARACTERS_KEY = 'fantasy_characters';
+const LEGACY_ACTIVE_CHARACTER_KEY = 'fantasy_active_character_id';
+const LEGACY_KNOWN_SESSIONS_KEY = 'fantasy_known_session_ids';
+const OLDEST_CHARACTERS_KEY = 'hp_characters';
+const OLDEST_ACTIVE_CHARACTER_KEY = 'hp_active_character_id';
+const OLDEST_KNOWN_SESSIONS_KEY = 'hp_known_session_ids';
 
-function migrateStorageKey(newKey: string, oldKey: string): string | null {
+function migrateStorageKey(newKey: string, ...legacyKeys: string[]): string | null {
   const current = localStorage.getItem(newKey);
   if (current !== null) return current;
 
-  const legacy = localStorage.getItem(oldKey);
-  if (legacy !== null) {
-    localStorage.setItem(newKey, legacy);
-    localStorage.removeItem(oldKey);
-    return legacy;
+  for (const oldKey of legacyKeys) {
+    const legacy = localStorage.getItem(oldKey);
+    if (legacy !== null) {
+      localStorage.setItem(newKey, legacy);
+      localStorage.removeItem(oldKey);
+      return legacy;
+    }
   }
 
   return null;
 }
 
 export function loadStoredCharacters(): Character[] {
-  const saved = migrateStorageKey(CHARACTERS_STORAGE_KEY, LEGACY_CHARACTERS_KEY);
+  const saved = migrateStorageKey(CHARACTERS_STORAGE_KEY, LEGACY_CHARACTERS_KEY, OLDEST_CHARACTERS_KEY);
   if (!saved) return [];
 
   try {
@@ -79,7 +84,7 @@ export function loadStoredCharacters(): Character[] {
 }
 
 function loadStoredActiveCharacterId(): string | null {
-  return migrateStorageKey(ACTIVE_CHARACTER_STORAGE_KEY, LEGACY_ACTIVE_CHARACTER_KEY);
+  return migrateStorageKey(ACTIVE_CHARACTER_STORAGE_KEY, LEGACY_ACTIVE_CHARACTER_KEY, OLDEST_ACTIVE_CHARACTER_KEY);
 }
 
 function resolveActiveCharacter(chars: Character[]): Character | null {
@@ -93,7 +98,7 @@ function resolveActiveCharacter(chars: Character[]): Character | null {
 }
 
 function trackKnownSessionId(sessionId: string) {
-  migrateStorageKey(KNOWN_SESSIONS_KEY, LEGACY_KNOWN_SESSIONS_KEY);
+  migrateStorageKey(KNOWN_SESSIONS_KEY, LEGACY_KNOWN_SESSIONS_KEY, OLDEST_KNOWN_SESSIONS_KEY);
   const ids: string[] = JSON.parse(localStorage.getItem(KNOWN_SESSIONS_KEY) || '[]');
   if (!ids.includes(sessionId)) {
     localStorage.setItem(KNOWN_SESSIONS_KEY, JSON.stringify([...ids, sessionId]));
@@ -152,7 +157,7 @@ export async function loadCharactersFromDB(sessionId: string): Promise<Character
 }
 
 export async function loadAllCharactersFromDB(): Promise<Character[]> {
-  migrateStorageKey(KNOWN_SESSIONS_KEY, LEGACY_KNOWN_SESSIONS_KEY);
+  migrateStorageKey(KNOWN_SESSIONS_KEY, LEGACY_KNOWN_SESSIONS_KEY, OLDEST_KNOWN_SESSIONS_KEY);
   const sessionIds: string[] = JSON.parse(localStorage.getItem(KNOWN_SESSIONS_KEY) || '[]');
   const merged = new Map<string, Character>();
   for (const sid of sessionIds) {
@@ -177,11 +182,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [language, setLanguage] = useState<Language>(() => {
-    return (localStorage.getItem('hp_language') as Language) || 'tr';
+    const current = localStorage.getItem('valdenmoor_language') as Language | null;
+    if (current) return current;
+    const legacy = localStorage.getItem('hp_language') as Language | null;
+    if (legacy) {
+      localStorage.setItem('valdenmoor_language', legacy);
+      localStorage.removeItem('hp_language');
+      return legacy;
+    }
+    return 'tr';
   });
 
   const handleSetLanguage = (lang: Language) => {
-    localStorage.setItem('hp_language', lang);
+    localStorage.setItem('valdenmoor_language', lang);
     setLanguage(lang);
   };
 
