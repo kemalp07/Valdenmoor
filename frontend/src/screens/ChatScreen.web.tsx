@@ -198,113 +198,164 @@ function isEmptyUserMessage(item: Message): boolean {
   return item.role === 'user' && (!item.text || item.text.trim() === '');
 }
 
+const STAT_TRANSITION = { transition: 'width 0.3s ease, background-color 0.3s ease' } as any;
+
+function StatCard({
+  icon,
+  label,
+  value,
+  max,
+  color,
+  displayValue,
+}: {
+  icon: string;
+  label: string;
+  value: number;
+  max: number;
+  color: string;
+  displayValue: string;
+}) {
+  const pct = Math.min(100, Math.round((value / max) * 100));
+
+  return (
+    <View style={statsBarStyles.card}>
+      <View style={statsBarStyles.cardHeader}>
+        <Text style={statsBarStyles.cardIcon}>{icon}</Text>
+        <Text style={statsBarStyles.cardLabel}>{label}</Text>
+        <Text style={[statsBarStyles.cardValue, { color }]}>{displayValue}</Text>
+      </View>
+      <View style={statsBarStyles.barBg}>
+        <View
+          style={[
+            statsBarStyles.barFill,
+            { width: `${pct}%` as any, backgroundColor: color },
+            STAT_TRANSITION,
+          ]}
+        />
+      </View>
+    </View>
+  );
+}
+
 function StatsBar({ stats }: { stats: Record<string, number> | null }) {
   if (!stats) return null;
 
-  const items = [
-    {
-      key: 'treasury',
-      icon: '💰',
-      value: stats.treasury ?? 0,
-      max: 1000,
-      critical: 150,
-      warning: 300,
-    },
-    {
-      key: 'army_morale',
-      icon: '⚔️',
-      value: stats.army_morale ?? 0,
-      max: 100,
-      critical: 20,
-      warning: 40,
-    },
-    {
-      key: 'public_support',
-      icon: '👥',
-      value: stats.public_support ?? 0,
-      max: 100,
-      critical: 20,
-      warning: 35,
-    },
-    {
-      key: 'prestige',
-      icon: '👑',
-      value: stats.prestige ?? 0,
-      max: 100,
-      critical: 15,
-      warning: 30,
-    },
-    {
-      key: 'dravkor_threat',
-      icon: '🗡️',
-      value: stats.dravkor_threat ?? 0,
-      max: 100,
-      critical: 80,
-      warning: 65,
-      inverted: true,
-    },
-  ];
+  const treasury = stats.treasury ?? 0;
+  const armyMorale = stats.army_morale ?? 0;
+  const publicSupport = stats.public_support ?? 0;
+  const prestige = stats.prestige ?? 0;
+  const dravkor = stats.dravkor_threat ?? 0;
+  const dravkorColor = dravkor > 70 ? '#e74c3c' : dravkor < 40 ? '#2ecc71' : '#e67e22';
+  const dravkorPct = Math.min(100, dravkor);
 
   return (
     <View style={statsBarStyles.container}>
-      {items.map((item) => {
-        const pct = Math.round((item.value / item.max) * 100);
-        const isCritical = item.inverted
-          ? item.value >= item.critical
-          : item.value <= item.critical;
-        const isWarning = item.inverted
-          ? item.value >= item.warning
-          : item.value <= item.warning;
-        const color = isCritical ? '#e74c3c' : isWarning ? '#e67e22' : '#c9a84c';
-
-        return (
-          <View key={item.key} style={statsBarStyles.item}>
-            <Text style={statsBarStyles.icon}>{item.icon}</Text>
-            <View style={statsBarStyles.barBg}>
-              <View
-                style={[
-                  statsBarStyles.barFill,
-                  {
-                    width: `${item.inverted ? 100 - pct : pct}%` as any,
-                    backgroundColor: color,
-                  },
-                ]}
-              />
-            </View>
-            <Text style={[statsBarStyles.value, { color }]}>
-              {item.key === 'treasury' ? item.value : `${pct}%`}
-            </Text>
-          </View>
-        );
-      })}
+      <View style={statsBarStyles.gridRow}>
+        <StatCard
+          icon="💰"
+          label="Hazine"
+          value={treasury}
+          max={1000}
+          color="#c9a84c"
+          displayValue={String(treasury)}
+        />
+        <StatCard
+          icon="⚔️"
+          label="Ordu"
+          value={armyMorale}
+          max={100}
+          color="#e74c3c"
+          displayValue={`${armyMorale}%`}
+        />
+      </View>
+      <View style={statsBarStyles.gridRow}>
+        <StatCard
+          icon="👥"
+          label="Halk"
+          value={publicSupport}
+          max={100}
+          color="#2ecc71"
+          displayValue={`${publicSupport}%`}
+        />
+        <StatCard
+          icon="👑"
+          label="Prestij"
+          value={prestige}
+          max={100}
+          color="#9b59b6"
+          displayValue={`${prestige}%`}
+        />
+      </View>
+      <View style={statsBarStyles.dravkorCard}>
+        <View style={statsBarStyles.cardHeader}>
+          <Text style={statsBarStyles.cardIcon}>☠️</Text>
+          <Text style={statsBarStyles.cardLabel}>Dravkor Tehdidi</Text>
+          <Text style={[statsBarStyles.cardValue, { color: dravkorColor }]}>{dravkor}%</Text>
+        </View>
+        <View style={statsBarStyles.barBg}>
+          <View
+            style={[
+              statsBarStyles.barFill,
+              { width: `${dravkorPct}%` as any, backgroundColor: dravkorColor },
+              STAT_TRANSITION,
+            ]}
+          />
+        </View>
+      </View>
     </View>
   );
 }
 
 const statsBarStyles = StyleSheet.create({
   container: {
+    width: '100%',
+    maxWidth: 720,
+    gap: 8,
+    marginBottom: 10,
+  },
+  gridRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(201,168,76,0.2)',
     gap: 8,
   },
-  item: {
+  card: {
+    flex: 1,
+    backgroundColor: 'rgba(10, 6, 4, 0.7)',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(201, 168, 76, 0.15)',
+  },
+  dravkorCard: {
+    backgroundColor: 'rgba(10, 6, 4, 0.7)',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(201, 168, 76, 0.15)',
+  },
+  cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
-    gap: 4,
+    gap: 6,
+    marginBottom: 6,
   },
-  icon: {
+  cardIcon: {
+    fontSize: 13,
+  },
+  cardLabel: {
+    flex: 1,
     fontSize: 11,
+    color: 'rgba(245, 230, 200, 0.85)',
+    fontFamily: Platform.OS === 'web' ? 'Cinzel, serif' : undefined,
+  },
+  cardValue: {
+    fontSize: 11,
+    fontWeight: '600',
+    fontFamily: Platform.OS === 'web' ? 'Cinzel, serif' : undefined,
   },
   barBg: {
-    flex: 1,
-    height: 4,
+    height: 3,
     backgroundColor: 'rgba(255,255,255,0.1)',
     borderRadius: 2,
     overflow: 'hidden',
@@ -312,12 +363,6 @@ const statsBarStyles = StyleSheet.create({
   barFill: {
     height: '100%',
     borderRadius: 2,
-  },
-  value: {
-    fontSize: 9,
-    fontFamily: Platform.OS === 'web' ? 'Cinzel, serif' : undefined,
-    minWidth: 28,
-    textAlign: 'right',
   },
 });
 
@@ -876,6 +921,18 @@ export const ChatScreen = ({ navigation }: any) => {
     openingRequested.current = false;
     setMessages([]);
     setGameStats(null);
+
+    if (!sessionId) return;
+    fetch(`${API_BASE}/game-stats?session_id=${encodeURIComponent(sessionId)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.stats) {
+          setGameStats(data.stats);
+        }
+      })
+      .catch(() => {
+        // Sessizce geç, AI yanıtından gelince güncellenir
+      });
   }, [sessionId, setMessages]);
 
   useEffect(() => {
@@ -1061,8 +1118,6 @@ export const ChatScreen = ({ navigation }: any) => {
               </View>
             </View>
 
-            <StatsBar stats={gameStats} />
-
             <FlatList
               ref={flatListRef}
               data={messages}
@@ -1115,6 +1170,7 @@ export const ChatScreen = ({ navigation }: any) => {
             />
 
             <View style={styles.inputArea}>
+              <StatsBar stats={gameStats} />
               <Text style={styles.inputTip}>{inputTips[tipIndex]}</Text>
               <View style={[styles.inputBox, styles.inputBoxSpacing]}>
                 <TextInput
