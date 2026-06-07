@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Image,
+  ImageBackground,
   FlatList,
   KeyboardAvoidingView,
   NativeSyntheticEvent,
@@ -26,6 +27,28 @@ import { getInputTips, getTagNames, t, Language } from '../i18n/translations';
 const NARRATOR_NAME = 'Valdenmoor';
 const NARRATOR_CREST = require('../../assets/valdenmoor_crest.png');
 const USER_BUBBLE_COLOR = 'rgba(120, 50, 8, 0.95)';
+const LOCATION_BACKGROUNDS: Record<string, any> = {
+  throne_room: require('../../assets/backgrounds/throne_room.png'),
+  great_hall: require('../../assets/backgrounds/great_hall.png'),
+  war_room: require('../../assets/backgrounds/war_room.png'),
+  castle_corridor: require('../../assets/backgrounds/castle_corridor.png'),
+  castle_exterior: require('../../assets/backgrounds/castle_exterior.png'),
+  ashenmoor_market: require('../../assets/backgrounds/ashenmoor_market.png'),
+  ashenmoor_streets: require('../../assets/backgrounds/ashenmoor_streets.png'),
+  dawnhold_fortress: require('../../assets/backgrounds/dawnhold_fortress.png'),
+  varethis_harbor: require('../../assets/backgrounds/varethis_harbor.png'),
+  varethis_sea: require('../../assets/backgrounds/varethis_sea.png'),
+  throne_antechamber: require('../../assets/backgrounds/throne_antechamber.png'),
+  castle_dungeon: require('../../assets/backgrounds/castle_dungeon.png'),
+  castle_battlements: require('../../assets/backgrounds/castle_battlements.png'),
+  royal_chambers: require('../../assets/backgrounds/royal_chambers.png'),
+  forest_path: require('../../assets/backgrounds/forest_path.png'),
+  selmara_palace: require('../../assets/backgrounds/selmara_palace.png'),
+  kadir_bazaar: require('../../assets/backgrounds/kadir_bazaar.png'),
+  battlefield: require('../../assets/backgrounds/battlefield.png'),
+  council_chamber: require('../../assets/backgrounds/council_chamber.png'),
+  chapel: require('../../assets/backgrounds/chapel.png'),
+};
 const MIN_INPUT_HEIGHT = 36;
 const MAX_INPUT_HEIGHT = 100;
 
@@ -576,6 +599,7 @@ export const ChatScreen = ({ navigation }: any) => {
   const characterProfile = activeCharacter
     ? {
         gender: activeCharacter.gender,
+        rulingStyle: activeCharacter.rulingStyle,
         traits: activeCharacter.traits,
         origin: activeCharacter.origin,
         height: activeCharacter.height,
@@ -606,12 +630,21 @@ export const ChatScreen = ({ navigation }: any) => {
 
   const [inputText, setInputText] = useState('');
   const [inputHeight, setInputHeight] = useState(MIN_INPUT_HEIGHT);
+  const [currentLocation, setCurrentLocation] = useState('castle_exterior');
   const [tipIndex, setTipIndex] = useState(0);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
 
   const canSend = useMemo(() => !isLoading, [isLoading]);
+
+  const applyLocationFromAi = (location: string | undefined) => {
+    if (!location || location === 'unknown') return;
+    const key = location.replace(/-/g, '_');
+    if (LOCATION_BACKGROUNDS[key]) {
+      setCurrentLocation(key);
+    }
+  };
 
   const openingRequested = useRef(false);
 
@@ -631,6 +664,7 @@ export const ChatScreen = ({ navigation }: any) => {
           sessionId,
           characterProfile,
         );
+        applyLocationFromAi(aiResponse.location);
         setMessages([
           createMessage('ai', aiResponse.text, aiResponse.characterName || NARRATOR_NAME),
         ]);
@@ -690,8 +724,6 @@ export const ChatScreen = ({ navigation }: any) => {
     loadHistory();
   }, [sessionId, historyLoaded]);
 
-  // background video removed: using solid color background for web
-
   useEffect(() => {
     if (scrollTimeoutRef.current) {
       clearTimeout(scrollTimeoutRef.current);
@@ -724,6 +756,7 @@ export const ChatScreen = ({ navigation }: any) => {
 
     try {
       const aiResponse = await sendAiMessage(nextMessages, userName, '', sessionId, characterProfile);
+      applyLocationFromAi(aiResponse.location);
       if (aiResponse.narratorInjection) {
         const injectionMsg: Message = {
           id: `narrator-${Date.now()}`,
@@ -768,8 +801,11 @@ export const ChatScreen = ({ navigation }: any) => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.overlay}>
-        <View style={styles.kingdomBackground} />
+      <ImageBackground
+        source={LOCATION_BACKGROUNDS[currentLocation] || LOCATION_BACKGROUNDS.castle_exterior}
+        resizeMode="cover"
+        style={styles.overlay}
+      >
         <View style={styles.backgroundDarkOverlay} />
         <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
         <KeyboardAvoidingView
@@ -779,8 +815,10 @@ export const ChatScreen = ({ navigation }: any) => {
           <View style={[styles.screen, { position: 'relative' }]}>
             <View style={styles.header}>
               <Image source={NARRATOR_CREST} style={styles.headerCrest} resizeMode="contain" />
-              <Text style={styles.headerTitle}>{NARRATOR_NAME}</Text>
-              <Text style={styles.headerSubtitle}>{t(language, 'narratorSubtitle')}</Text>
+              <View style={styles.headerTextBlock}>
+                <Text style={styles.headerTitle}>{NARRATOR_NAME.toUpperCase()}</Text>
+                <Text style={styles.headerSubtitle}>{t(language, 'narratorSubtitle')}</Text>
+              </View>
             </View>
 
             <FlatList
@@ -865,7 +903,7 @@ export const ChatScreen = ({ navigation }: any) => {
             </View>
           </View>
         </KeyboardAvoidingView>
-      </View>
+      </ImageBackground>
     </SafeAreaView>
   );
 };
@@ -874,7 +912,9 @@ export default ChatScreen;
 
 const styles = StyleSheet.create({
   safeArea: {
-    flex: 1,
+    width: '100vw' as any,
+    height: '100vh' as any,
+    overflow: 'hidden' as any,
     backgroundColor: 'transparent',
   },
   kingdomBackground: {
@@ -882,6 +922,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#0a0604',
   },
   overlay: {
+    width: '100%',
+    height: '100%',
     flex: 1,
     backgroundColor: 'transparent',
   },
@@ -922,33 +964,37 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   header: {
-    minHeight: 96,
+    height: 56,
     backgroundColor: 'rgba(5, 3, 1, 0.88)',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.08)',
     paddingHorizontal: 16,
     paddingVertical: 8,
-    flexDirection: 'column',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerCrest: {
-    width: 48,
-    height: 48,
-    marginBottom: 4,
+    width: 32,
+    height: 32,
+    marginRight: 10,
+  },
+  headerTextBlock: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 26,
+    fontSize: 14,
     fontWeight: '600',
     color: '#FFFFFF',
     fontFamily: 'Cinzel, serif',
-    letterSpacing: 4,
+    letterSpacing: 3,
   },
   headerSubtitle: {
-    fontSize: 11,
+    fontSize: 10,
     color: 'rgba(255, 255, 255, 0.45)',
-    letterSpacing: 3,
-    marginTop: 2,
+    letterSpacing: 2,
+    marginTop: 1,
     fontFamily: 'Cinzel, serif',
   },
   list: {

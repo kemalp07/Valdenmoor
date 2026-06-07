@@ -7,6 +7,7 @@ type AIMessageResult = {
   text: string;
   characterName?: string;
   narratorInjection?: string;
+  location?: string;
 };
 
 type ApiMessage = {
@@ -18,6 +19,7 @@ type ChatApiResponse = {
   response?: string;
   text?: string;
   character_name?: string;
+  location?: string;
 };
 
 const API_URL = `${API_BASE}/chat`;
@@ -110,13 +112,14 @@ export async function sendMessage(
       if (!text) {
         throw new Error('Empty response from AI API');
       }
-      return { text, characterName: data.character_name };
+      return { text, characterName: data.character_name, location: data.location };
     }
 
     const raw = await response.text();
     let assembled = '';
     let characterName = '';
     let narratorInjection: string | undefined;
+    let location: string | undefined;
 
     for (const line of raw.split('\n')) {
       if (!line.startsWith('data: ')) {
@@ -134,14 +137,21 @@ export async function sendMessage(
           text?: string;
           character_name?: string;
           narrator_injection?: string;
+          location?: string;
         };
         if (parsed.type === 'meta') {
           narratorInjection = parsed.narrator_injection;
+          if (parsed.location) {
+            location = parsed.location;
+          }
         } else if (parsed.type === 'chunk' && parsed.text) {
           assembled += parsed.text;
         } else if (parsed.type === 'done') {
           if (parsed.character_name) {
             characterName = parsed.character_name;
+          }
+          if (parsed.location) {
+            location = parsed.location;
           }
         }
       } catch {
@@ -153,7 +163,12 @@ export async function sendMessage(
       throw new Error('Empty streaming response from AI API');
     }
 
-    return { text: assembled, characterName: characterName || undefined, narratorInjection };
+    return {
+      text: assembled,
+      characterName: characterName || undefined,
+      narratorInjection,
+      location,
+    };
   } catch (error) {
     console.error('sendMessage failed:', error);
     throw error;

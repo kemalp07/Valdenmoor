@@ -46,6 +46,9 @@ CREATE TABLE user_memories (
 CREATE TABLE game_sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   player_name TEXT,
+  gender TEXT DEFAULT 'king',
+  ruling_style TEXT DEFAULT 'diplomatic',
+  origin TEXT DEFAULT 'noble',
   created_at TIMESTAMP DEFAULT NOW()
 );
 

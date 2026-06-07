@@ -1,0 +1,4 @@
+ALTER TABLE game_sessions
+ADD COLUMN IF NOT EXISTS gender TEXT DEFAULT 'king',
+ADD COLUMN IF NOT EXISTS ruling_style TEXT DEFAULT 'diplomatic',
+ADD COLUMN IF NOT EXISTS origin TEXT DEFAULT 'noble';

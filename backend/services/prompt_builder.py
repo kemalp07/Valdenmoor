@@ -137,6 +137,7 @@ def _format_character_profile(user_name: str, character_profile: dict) -> str:
         "## OYUNCU KARAKTERİ:",
         f"- İsim: {user_name}",
         f"- Cinsiyet: {character_profile.get('gender', '')}",
+        f"- Yönetim tarzı: {character_profile.get('rulingStyle', '')}",
         f"- Boy: {character_profile.get('height', '')}",
         f"- Saç rengi: {character_profile.get('hairColor', '')}",
         f"- Kişilik: {', '.join(character_profile.get('traits', []))}",

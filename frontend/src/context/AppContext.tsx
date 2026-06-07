@@ -14,6 +14,7 @@ export type Character = {
   id: string;
   name: string;
   gender: string;
+  rulingStyle?: string;
   traits: string[];
   origin: string;
   height: string;
@@ -57,6 +58,11 @@ export function mapDbCharacterToCharacter(row: Record<string, unknown>): Charact
     id: String(row.id || ''),
     name: String(row.name || ''),
     gender: String(row.gender || ''),
+    rulingStyle: String(
+      row.ruling_style ||
+        row.rulingStyle ||
+        (Array.isArray(row.traits) && row.traits[0] ? row.traits[0] : ''),
+    ),
     traits: Array.isArray(row.traits) ? row.traits as string[] : [],
     origin: String(row.origin || ''),
     height: String(row.height || ''),

@@ -45,17 +45,113 @@ _DEFAULT_GAME_STATS = {
     "dravkor_threat": 60,
 }
 
+_NPC_CHARACTER_IDS = [
+    "duke_malachar",
+    "general_harkon",
+    "king_edwyn",
+    "princess_elowen",
+    "prince_aldric_selmara",
+    "sultan_rashid",
+    "envoy_zara",
+    "lord_aldric_vane",
+    "lord_harwin_sorn",
+    "lord_cerin_vane",
+    "priest_edran",
+    "mira",
+    "general_caelan_voss",
+    "lord_commander_draven",
+    "commander_sera_ashford",
+    "tomas",
+    "lena",
+]
 
-def _ensure_game_session(session_id: str, player_name: str) -> None:
+
+def _normalize_gender(gender: str) -> str:
+    return gender if gender in ("king", "queen") else "king"
+
+
+def _normalize_ruling_style(style: str) -> str:
+    return style if style in ("harsh", "diplomatic", "cunning") else "diplomatic"
+
+
+def _normalize_origin(origin: str) -> str:
+    return origin if origin in ("warrior", "merchant", "noble") else "noble"
+
+
+def _stats_for_origin(origin: str) -> dict:
+    stats = dict(_DEFAULT_GAME_STATS)
+    if origin == "warrior":
+        stats["army_morale"] = 55
+        stats["treasury"] = 400
+    elif origin == "merchant":
+        stats["treasury"] = 550
+        stats["army_morale"] = 35
+    elif origin == "noble":
+        stats["prestige"] = 45
+    return stats
+
+
+def _ensure_game_session(
+    session_id: str,
+    player_name: str,
+    gender: str = "king",
+    ruling_style: str = "diplomatic",
+    origin: str = "noble",
+) -> None:
     if not supabase:
         return
     try:
         supabase.table("game_sessions").upsert(
-            {"id": session_id, "player_name": player_name},
+            {
+                "id": session_id,
+                "player_name": player_name,
+                "gender": _normalize_gender(gender),
+                "ruling_style": _normalize_ruling_style(ruling_style),
+                "origin": _normalize_origin(origin),
+            },
             on_conflict="id",
         ).execute()
     except Exception as e:
         logger.error(f"ensure_game_session error: {e}")
+
+
+def _init_game_for_new_session(session_id: str, origin: str) -> None:
+    if not supabase:
+        return
+    origin = _normalize_origin(origin)
+    try:
+        stats_resp = (
+            supabase.table("game_stats")
+            .select("session_id")
+            .eq("session_id", session_id)
+            .limit(1)
+            .execute()
+        )
+        if not stats_resp.data:
+            supabase.table("game_stats").insert(
+                {"session_id": session_id, **_stats_for_origin(origin)}
+            ).execute()
+
+        relations_resp = (
+            supabase.table("character_relations")
+            .select("character_id")
+            .eq("session_id", session_id)
+            .limit(1)
+            .execute()
+        )
+        if not relations_resp.data:
+            loyalty_base = 60 if origin == "noble" else 50
+            rows = [
+                {
+                    "session_id": session_id,
+                    "character_id": character_id,
+                    "loyalty": loyalty_base,
+                }
+                for character_id in _NPC_CHARACTER_IDS
+            ]
+            supabase.table("character_relations").insert(rows).execute()
+    except Exception as e:
+        logger.error(f"init_game_for_new_session error: {e}")
 
 
 def _ensure_game_stats(session_id: str) -> dict:
@@ -251,7 +347,14 @@ async def chat_endpoint(request: Request):
     conversation_for_memory = _merge_history_and_current(history, message)
     memories = await get_memories(session_id)
 
-    _ensure_game_session(session_id, user_name)
+    profile = character_profile or {}
+    _ensure_game_session(
+        session_id,
+        user_name,
+        profile.get("gender", "king"),
+        profile.get("rulingStyle", "diplomatic"),
+        profile.get("origin", "noble"),
+    )
     game_stats = _ensure_game_stats(session_id)
     character_relations = _get_character_relations(session_id)
 
@@ -653,13 +756,25 @@ async def save_character(request: Request):
 
     if supabase:
         try:
+            origin = _normalize_origin(character.get("origin", "noble") or "noble")
+            ruling_style = _normalize_ruling_style(
+                character.get("rulingStyle", "diplomatic") or "diplomatic"
+            )
+            _ensure_game_session(
+                session_id,
+                character.get("name", ""),
+                character.get("gender", "king") or "king",
+                ruling_style,
+                origin,
+            )
+            _init_game_for_new_session(session_id, origin)
             supabase.table("characters").upsert({
                 "id": character.get("id"),
                 "session_id": session_id,
                 "name": character.get("name", ""),
                 "gender": character.get("gender", ""),
                 "traits": character.get("traits", []),
-                "origin": character.get("origin", ""),
+                "origin": origin,
                 "height": character.get("height", ""),
                 "hair_color": character.get("hairColor", ""),
                 "fear": character.get("fear", ""),
