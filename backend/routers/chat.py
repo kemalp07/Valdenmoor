@@ -30,10 +30,6 @@ from datetime import datetime
 
 router = APIRouter()
 
-_CHARACTER_ID_MAP = {
-    "valdenmoor-narrator": "00000000-0000-0000-0000-000000000001",
-    "hogwarts-narrator": "00000000-0000-0000-0000-000000000002",
-}
 logger = logging.getLogger(__name__)
 _DEBUG_CHAT = os.getenv("DEBUG_CHAT", "").lower() in ("1", "true", "yes")
 
@@ -136,8 +132,7 @@ async def chat_endpoint(request: Request):
     message = body.get("message", "")
     history = body.get("history") or []
     session_id = body.get("session_id") or str(uuid.uuid4())
-    _raw_cid = body.get("character_id") or "valdenmoor-narrator"
-    character_id = _CHARACTER_ID_MAP.get(_raw_cid, _raw_cid)
+    character_id = None
     user_name = body.get("user_name") or "Hükümdar"
     character_profile = body.get("character_profile")
     language = body.get("language", "tr")
@@ -272,11 +267,11 @@ async def chat_endpoint(request: Request):
 
     async def save_messages(sid: str, user_text: str, assistant_text: str):
         try:
-            insert_message(session_id=sid, character_id=character_id, role="user", content=user_text)
+            insert_message(session_id=sid, character_id=None, role="user", content=user_text)
         except Exception:
             pass
         try:
-            insert_message(session_id=sid, character_id=character_id, role="assistant", content=assistant_text)
+            insert_message(session_id=sid, character_id=None, role="assistant", content=assistant_text)
         except Exception:
             pass
 
@@ -375,8 +370,6 @@ async def chat_endpoint(request: Request):
 async def run_simulation_endpoint(request: Request):
     body = await request.json()
     session_id = body.get("session_id", "")
-    _raw_cid = body.get("character_id") or "valdenmoor-narrator"
-    character_id = _CHARACTER_ID_MAP.get(_raw_cid, _raw_cid)
     week = int(body.get("week", 1))
     day = int(body.get("day", 1))
     conversation = body.get("conversation", [])
