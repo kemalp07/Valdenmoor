@@ -23,7 +23,7 @@ def _normalize_memory_owner_id(session_id: str) -> str:
     try:
         return str(uuid.UUID(session_id))
     except Exception:
-        return str(uuid.uuid5(uuid.NAMESPACE_URL, f"hpgwarts-memory:{session_id}"))
+        return str(uuid.uuid5(uuid.NAMESPACE_URL, f"valdenmoor-memory:{session_id}"))
 
 
 def _extract_text_from_response(event: dict[str, Any]) -> str:

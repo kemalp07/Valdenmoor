@@ -196,7 +196,7 @@ def check_world_events(session_id: str) -> dict | None:
 async def run_point_simulation(
     session_id: str,
     conversation: list,
-    player_house: str,
+    player_house: str = "",
     week: int = 1,
     day: int = 1,
 ) -> dict:
