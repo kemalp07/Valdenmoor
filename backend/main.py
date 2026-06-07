@@ -45,3 +45,13 @@ async def env_status():
         "vertex_location": os.getenv("VERTEX_AI_LOCATION", "us-central1"),
         "vertex_model": os.getenv("VERTEX_AI_MODEL", "gemini-2.0-flash-001"),
     }
+
+
+@app.post("/debug/reset-cache")
+async def reset_prompt_cache():
+    """narrator.md ve world.md cache'ini temizle — deploy sonrası hot-reload için."""
+    import backend.services.prompt_builder as pb
+    pb._NARRATOR_CACHE = None
+    pb._WORLD_CACHE = None
+    pb._CHARACTERS_CACHE = None
+    return {"status": "ok", "message": "Prompt cache sıfırlandı"}

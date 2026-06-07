@@ -268,21 +268,32 @@ def _merge_history_and_current(history: list, current_user_content: str) -> list
 
 
 def detect_character(text: str) -> str:
-    """Detect character name from response text based on keywords."""
-    checks = [
-        (["Şapka", "Hat", "Sorting"], "Sıralama Şapkası"),
-        (["McGonagall"], "Profesör McGonagall"),
-        (["Dumbledore"], "Profesör Dumbledore"),
-        (["Snape"], "Profesör Snape"),
-        (["Hermione"], "Hermione Granger"),
-        (["Hagrid"], "Rubeus Hagrid"),
-        (["Draco", "Malfoy"], "Draco Malfoy"),
-        (["Ron"], "Ron Weasley"),
-    ]
-    for keywords, name in checks:
-        if any(k in text for k in keywords):
-            return name
-    return "Hogwarts"
+    """Extract first character tag from AI response, fallback to Narrator."""
+    import re
+    tag_to_name = {
+        "LORD_ALDRIC_VANE": "Lord Aldric Vane",
+        "LORD_HARWIN_SORN": "Lord Harwin Sorn",
+        "LORD_CERIN_VANE": "Lord Cerin Vane",
+        "MIRA": "Mira",
+        "LORD_COMMANDER_DRAVEN": "Lord Commander Draven",
+        "COMMANDER_SERA_ASHFORD": "Komutan Sera Ashford",
+        "GENERAL_CAELAN_VOSS": "General Caelan Voss",
+        "PRIEST_EDRAN": "Rahip Edran",
+        "TOMAS": "Tomas",
+        "LENA": "Lena",
+        "DUKE_MALACHAR": "Dük Malachar",
+        "GENERAL_HARKON": "General Harkon",
+        "KING_EDWYN": "Kral Edwyn",
+        "PRINCESS_ELOWEN": "Prenses Elowen",
+        "PRINCE_ALDRIC_SELMARA": "Prens Aldric",
+        "SULTAN_RASHID": "Sultan Rashid",
+        "ENVOY_ZARA": "Elçi Zara",
+    }
+    for match in re.finditer(r'^\[([A-Z_]+)\]', text, re.MULTILINE):
+        tag = match.group(1)
+        if tag in tag_to_name:
+            return tag_to_name[tag]
+    return "Anlatıcı"
 
 
 @router.get("/history")
