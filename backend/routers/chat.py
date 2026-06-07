@@ -745,38 +745,6 @@ async def delete_messages(session_id: str = Query(..., min_length=1)):
     return {"status": "ok"}
 
 
-@router.get("/schedule")
-async def schedule_endpoint(
-    session_id: str = Query(..., min_length=1),
-    language: str = Query("tr"),
-):
-    """Deprecated — Hogwarts ders programı Valdenmoor'da kullanılmıyor."""
-    return JSONResponse(content={"status": "deprecated", "schedule": [], "session_id": session_id})
-
-
-@router.get("/house-points")
-async def house_points_endpoint(session_id: str = Query(..., min_length=1)):
-    """Deprecated — ev puanları yerine /game-stats kullan."""
-    stats = _ensure_game_stats(session_id)
-    return JSONResponse(content={"status": "deprecated", "game_stats": stats})
-
-
-@router.post("/advance-day")
-async def advance_day_endpoint(request: Request):
-    """Deprecated — Valdenmoor'da gün döngüsü henüz aktif değil."""
-    body = await request.json()
-    session_id = body.get("session_id", "")
-    if not session_id:
-        raise HTTPException(status_code=400, detail="session_id gerekli")
-    return JSONResponse(content={"status": "deprecated", "game_state": get_game_state(session_id)})
-
-
-@router.post("/set-house")
-async def set_house_endpoint(request: Request):
-    """Deprecated — Valdenmoor'da ev seçimi yok."""
-    raise HTTPException(status_code=410, detail="Valdenmoor'da ev seçimi bulunmuyor")
-
-
 @router.post("/save-character")
 async def save_character(request: Request):
     body = await request.json()
