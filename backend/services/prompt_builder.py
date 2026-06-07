@@ -87,6 +87,8 @@ def _format_characters(characters: list) -> str:
                     block.append(f"{label_text}: {char[field]}")
             if char.get("romantic_option"):
                 block.append(f"Romantik seçenek #{char['romantic_option']}")
+            if char.get("portrait"):
+                block.append(f"Portre: {char['portrait']}")
             lines.append("\n".join(block))
             lines.append("")
 
