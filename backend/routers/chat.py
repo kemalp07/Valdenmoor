@@ -45,6 +45,15 @@ _DEFAULT_GAME_STATS = {
     "dravkor_threat": 60,
 }
 
+_STAT_KEYS = tuple(_DEFAULT_GAME_STATS.keys())
+_STAT_MAX = {
+    "treasury": 1000,
+    "army_morale": 100,
+    "public_support": 100,
+    "prestige": 100,
+    "dravkor_threat": 100,
+}
+
 _NPC_CHARACTER_IDS = [
     "duke_malachar",
     "general_harkon",
@@ -175,6 +184,35 @@ def _ensure_game_stats(session_id: str) -> dict:
     except Exception as e:
         logger.error(f"ensure_game_stats error: {e}")
         return dict(_DEFAULT_GAME_STATS)
+
+
+def _apply_stats_delta(session_id: str, stats_delta: dict) -> dict:
+    current = _ensure_game_stats(session_id)
+    updated = dict(current)
+
+    for key in _STAT_KEYS:
+        if key not in stats_delta:
+            continue
+        try:
+            delta = int(stats_delta[key])
+        except (TypeError, ValueError):
+            continue
+        cap = _STAT_MAX.get(key, 100)
+        updated[key] = max(0, min(cap, int(updated.get(key, 0)) + delta))
+
+    if supabase:
+        try:
+            supabase.table("game_stats").upsert(
+                {
+                    "session_id": session_id,
+                    **{key: updated[key] for key in _STAT_KEYS},
+                },
+                on_conflict="session_id",
+            ).execute()
+        except Exception as e:
+            logger.error(f"apply_stats_delta error: {e}")
+
+    return updated
 
 
 def _get_character_relations(session_id: str) -> list[dict]:
@@ -793,6 +831,21 @@ async def save_character(request: Request):
             raise HTTPException(status_code=500, detail=str(e))
 
     return JSONResponse(content={"status": "ok"})
+
+
+@router.post("/update-stats")
+async def update_stats(request: Request):
+    body = await request.json()
+    session_id = body.get("session_id", "")
+    stats_delta = body.get("stats_delta") or {}
+
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id gerekli")
+    if not isinstance(stats_delta, dict) or not stats_delta:
+        raise HTTPException(status_code=400, detail="stats_delta gerekli")
+
+    updated = _apply_stats_delta(session_id, stats_delta)
+    return JSONResponse(content={"status": "ok", "stats": updated})
 
 
 @router.get("/load-characters")

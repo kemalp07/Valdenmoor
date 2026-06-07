@@ -100,6 +100,65 @@ const TAG_AVATARS: Record<string, any> = {
   LENA: require('../../assets/characters/lena.jpg'),
 };
 
+const JSON_BLOCK_REGEX = /```json[\s\S]*?```/g;
+
+function cleanAiDisplayText(text: string): string {
+  return text.replace(JSON_BLOCK_REGEX, '').trim();
+}
+
+function parseStatsDelta(text: string): Record<string, number> | null {
+  const blockRegex = /```json\s*([\s\S]*?)```/g;
+  const merged: Record<string, number> = {};
+  let found = false;
+  let match: RegExpExecArray | null;
+
+  while ((match = blockRegex.exec(text)) !== null) {
+    try {
+      const normalizedJson = match[1].replace(/:\s*\+(\d+)/g, ': $1');
+      const parsed = JSON.parse(normalizedJson) as { stats_delta?: Record<string, unknown> };
+      const delta = parsed?.stats_delta;
+      if (!delta || typeof delta !== 'object') continue;
+
+      for (const [key, value] of Object.entries(delta)) {
+        if (typeof value === 'number' && !Number.isNaN(value)) {
+          merged[key] = value;
+          found = true;
+        } else if (typeof value === 'string') {
+          const num = Number(value.replace(/^\+/, ''));
+          if (!Number.isNaN(num)) {
+            merged[key] = num;
+            found = true;
+          }
+        }
+      }
+    } catch {
+      // Ignore malformed JSON blocks.
+    }
+  }
+
+  return found ? merged : null;
+}
+
+async function postStatsDelta(sessionId: string, statsDelta: Record<string, number>) {
+  try {
+    await fetch(`${API_BASE}/update-stats`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: sessionId, stats_delta: statsDelta }),
+    });
+  } catch (error) {
+    console.error('update-stats error:', error);
+  }
+}
+
+async function processAiResponseText(text: string, sessionId: string): Promise<string> {
+  const statsDelta = parseStatsDelta(text);
+  if (statsDelta && Object.keys(statsDelta).length > 0) {
+    await postStatsDelta(sessionId, statsDelta);
+  }
+  return cleanAiDisplayText(text);
+}
+
 function createMessage(role: 'user' | 'ai', text: string, characterName?: string): Message {
   return {
     id: `${role}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
@@ -665,8 +724,9 @@ export const ChatScreen = ({ navigation }: any) => {
           characterProfile,
         );
         applyLocationFromAi(aiResponse.location);
+        const displayText = await processAiResponseText(aiResponse.text, sessionId);
         setMessages([
-          createMessage('ai', aiResponse.text, aiResponse.characterName || NARRATOR_NAME),
+          createMessage('ai', displayText, aiResponse.characterName || NARRATOR_NAME),
         ]);
       } catch {
         const intro = getFirstMessage(0, language);
@@ -710,7 +770,7 @@ export const ChatScreen = ({ navigation }: any) => {
         const loaded: Message[] = msgs.map((m: any) => ({
           id: Math.random().toString(36).slice(2),
           role: m.role === 'user' ? 'user' : 'ai',
-          text: m.content,
+          text: m.role === 'assistant' ? cleanAiDisplayText(m.content) : m.content,
           characterName: m.character_name || undefined,
           timestamp: m.created_at ? new Date(m.created_at).getTime() : Date.now(),
         }));
@@ -757,6 +817,7 @@ export const ChatScreen = ({ navigation }: any) => {
     try {
       const aiResponse = await sendAiMessage(nextMessages, userName, '', sessionId, characterProfile);
       applyLocationFromAi(aiResponse.location);
+      const displayText = await processAiResponseText(aiResponse.text, sessionId);
       if (aiResponse.narratorInjection) {
         const injectionMsg: Message = {
           id: `narrator-${Date.now()}`,
@@ -764,11 +825,11 @@ export const ChatScreen = ({ navigation }: any) => {
           text: aiResponse.narratorInjection,
           characterName: 'Valdenmoor',
         };
-        setMessages([injectionMsg, ...nextMessages, createMessage('ai', aiResponse.text, aiResponse.characterName)]);
+        setMessages([injectionMsg, ...nextMessages, createMessage('ai', displayText, aiResponse.characterName)]);
       } else {
         setMessages([
           ...nextMessages,
-          createMessage('ai', aiResponse.text, aiResponse.characterName),
+          createMessage('ai', displayText, aiResponse.characterName),
         ]);
       }
     } catch (error) {
@@ -964,7 +1025,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   header: {
-    height: 56,
+    height: 64,
     backgroundColor: 'rgba(5, 3, 1, 0.88)',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.08)',
@@ -975,8 +1036,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerCrest: {
-    width: 32,
-    height: 32,
+    width: 44,
+    height: 44,
     marginRight: 10,
   },
   headerTextBlock: {
