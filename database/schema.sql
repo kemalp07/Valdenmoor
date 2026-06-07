@@ -1,4 +1,9 @@
--- Kullanıcılar
+-- Valdenmoor — temiz veritabanı şeması
+-- Hogwarts kalıntıları yok. Sadece aktif kullanılan tablolar.
+
+CREATE EXTENSION IF NOT EXISTS vector;
+
+-- Kullanıcılar (hafıza sistemi session → user eşlemesi için)
 CREATE TABLE users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email TEXT UNIQUE NOT NULL,
@@ -9,21 +14,32 @@ CREATE TABLE users (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Karakterler (sabit, admin tarafından doldurulur)
+-- Karakterler (oyuncu karakteri + NPC kayıtları)
 CREATE TABLE characters (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id TEXT,
   name TEXT NOT NULL,
   house TEXT,
-  personality TEXT NOT NULL,
-  speech_style TEXT NOT NULL,
+  gender TEXT,
+  traits TEXT[],
+  origin TEXT,
+  height TEXT,
+  hair_color TEXT,
+  fear TEXT,
+  hobby TEXT,
+  secret_trait TEXT,
+  attraction TEXT,
+  personality TEXT,
+  speech_style TEXT NOT NULL DEFAULT 'neutral',
   likes TEXT,
   dislikes TEXT,
-  base_prompt TEXT NOT NULL,
+  base_prompt TEXT NOT NULL DEFAULT 'npc',
   image_url TEXT,
-  is_active BOOLEAN DEFAULT true
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Mekanlar (sabit, admin tarafından doldurulur)
+-- Mekanlar (lore / arka plan)
 CREATE TABLE locations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
@@ -33,26 +49,30 @@ CREATE TABLE locations (
   characters_present UUID[]
 );
 
--- Kullanıcı hafızası (her konuşma sonunda AI tarafından doldurulur)
+-- Kullanıcı hafızası
 CREATE TABLE user_memories (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  character_id UUID REFERENCES characters(id),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  character_id UUID REFERENCES characters(id) ON DELETE SET NULL,
   summary TEXT NOT NULL,
+  summary_type TEXT DEFAULT 'episodic' CHECK (summary_type IN ('episodic', 'rolling')),
   created_at TIMESTAMP DEFAULT NOW()
 );
+
+CREATE INDEX idx_user_memories_user_id ON user_memories(user_id);
+CREATE INDEX idx_user_memories_user_type ON user_memories(user_id, summary_type);
 
 -- Oyun oturumları
 CREATE TABLE game_sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   player_name TEXT,
-  gender TEXT DEFAULT 'king',
-  ruling_style TEXT DEFAULT 'diplomatic',
-  origin TEXT DEFAULT 'noble',
+  gender TEXT DEFAULT 'king' CHECK (gender IN ('king', 'queen')),
+  ruling_style TEXT DEFAULT 'diplomatic' CHECK (ruling_style IN ('harsh', 'diplomatic', 'cunning')),
+  origin TEXT DEFAULT 'noble' CHECK (origin IN ('warrior', 'merchant', 'noble')),
   created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Oyun istatistikleri (oturum bazlı)
+-- Oyun istatistikleri (action sistemi)
 CREATE TABLE game_stats (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   session_id UUID NOT NULL REFERENCES game_sessions(id) ON DELETE CASCADE,
@@ -68,7 +88,9 @@ CREATE TABLE game_stats (
   UNIQUE(session_id)
 );
 
--- Karakter sadakat ilişkileri (oturum bazlı)
+CREATE INDEX idx_game_stats_session_id ON game_stats(session_id);
+
+-- Karakter ilişkileri (sözel durum sistemi)
 CREATE TABLE character_relations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   session_id UUID NOT NULL REFERENCES game_sessions(id) ON DELETE CASCADE,
@@ -80,9 +102,30 @@ CREATE TABLE character_relations (
   UNIQUE(session_id, character_id)
 );
 
--- Lore parçaları (RAG için)
-CREATE EXTENSION IF NOT EXISTS vector;
+CREATE INDEX idx_character_relations_session_id ON character_relations(session_id);
 
+-- Mesaj geçmişi
+CREATE TABLE messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id TEXT NOT NULL,
+  character_id UUID REFERENCES characters(id) ON DELETE SET NULL,
+  role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+  content TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_messages_session_id ON messages(session_id);
+
+-- Oyun durumu (pending injection / action butonları)
+CREATE TABLE game_state (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id TEXT NOT NULL UNIQUE,
+  pending_injection TEXT DEFAULT NULL,
+  pending_buttons TEXT DEFAULT NULL,
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Lore parçaları (RAG)
 CREATE TABLE lore_chunks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   content TEXT NOT NULL,
@@ -91,80 +134,13 @@ CREATE TABLE lore_chunks (
   tags TEXT[]
 );
 
--- Mesaj geçmişi (konuşma bitti → silinir, özet kalır)
-CREATE TABLE messages (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  session_id TEXT NOT NULL,
-  character_id UUID REFERENCES characters(id),
-  role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
-  content TEXT NOT NULL,
-  created_at TIMESTAMP DEFAULT NOW()
+-- Migration takibi
+CREATE TABLE schema_migrations (
+  filename TEXT PRIMARY KEY,
+  applied_at TIMESTAMP DEFAULT NOW()
 );
 
--- Ev puanları (tüm session'lar için global değil, per-session)
-CREATE TABLE house_points (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  session_id TEXT NOT NULL,
-  gryffindor INTEGER DEFAULT 0,
-  hufflepuff INTEGER DEFAULT 0,
-  ravenclaw INTEGER DEFAULT 0,
-  slytherin INTEGER DEFAULT 0,
-  updated_at TIMESTAMP DEFAULT NOW(),
-  UNIQUE(session_id)
-);
-
--- Puan olayları log (audit trail + hikaye tutarlılığı)
-CREATE TABLE house_point_events (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  session_id TEXT NOT NULL,
-  house TEXT NOT NULL CHECK (house IN ('gryffindor', 'hufflepuff', 'ravenclaw', 'slytherin')),
-  delta INTEGER NOT NULL,
-  reason TEXT NOT NULL,
-  source TEXT NOT NULL CHECK (source IN ('player_action', 'missed_class', 'natural_drift', 'event_spike', 'world_event', 'conversation_event', 'organic_drift')),
-  created_at TIMESTAMP DEFAULT NOW()
-);
-
--- Oyun durumu (takvim + son aktivite zamanı)
-CREATE TABLE game_state (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  session_id TEXT NOT NULL UNIQUE,
-  current_week INTEGER DEFAULT 1,
-  current_day INTEGER DEFAULT 1,   -- 1=Pazartesi ... 5=Cuma ... 7=Pazar
-  current_hour INTEGER DEFAULT 8,  -- 0-23
-  daily_message_count INTEGER DEFAULT 0,
-  last_activity_at TIMESTAMP DEFAULT NOW(),
-  points_floor_started_at TIMESTAMP DEFAULT NOW(),
-  player_house TEXT DEFAULT 'gryffindor' CHECK (player_house IN ('gryffindor', 'hufflepuff', 'ravenclaw', 'slytherin')),
-  pending_injection TEXT DEFAULT NULL,
-  pending_buttons TEXT DEFAULT NULL,
-  updated_at TIMESTAMP DEFAULT NOW()
-);
-
--- Kaçırılan ders ceza logu (her ders hafta/gün bazında bir kez)
-CREATE TABLE missed_class_log (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  session_id TEXT NOT NULL,
-  subject TEXT NOT NULL,
-  week INTEGER NOT NULL,
-  day INTEGER NOT NULL,
-  attended BOOLEAN DEFAULT FALSE,
-  penalty_applied INTEGER DEFAULT 0,
-  created_at TIMESTAMP DEFAULT NOW(),
-  UNIQUE(session_id, subject, week, day)
-);
-
--- DEPRECATED: Bu tablo kullanılmıyor.
--- Aktif tablo: character_relations (session bazlı loyalty skorları)
--- Supabase'de temizlemek için: DROP TABLE IF EXISTS character_relationships;
-/*
-CREATE TABLE character_relationships (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  session_id TEXT NOT NULL,
-  character_name TEXT NOT NULL,
-  score INTEGER DEFAULT 0 CHECK (score BETWEEN -100 AND 100),
-  last_interaction TEXT,
-  relationship_type TEXT DEFAULT 'neutral' CHECK (relationship_type IN ('neutral', 'friendship', 'romance', 'rivalry')),
-  updated_at TIMESTAMP DEFAULT NOW(),
-  UNIQUE(session_id, character_name)
-);
-*/
+COMMENT ON TABLE character_relations IS 'Karakter ilişkileri — status sözel durum metni, loyalty legacy';
+COMMENT ON COLUMN character_relations.status IS 'Karakterin mevcut durumu — Gemini tarafından güncellenir';
+COMMENT ON COLUMN game_state.pending_injection IS 'Narrator olay enjeksiyonu — bir sonraki mesajda okunur';
+COMMENT ON COLUMN game_state.pending_buttons IS 'Önerilen aksiyon butonları JSON — bir sonraki mesajda okunur';
