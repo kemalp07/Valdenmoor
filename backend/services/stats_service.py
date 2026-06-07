@@ -9,7 +9,10 @@ DEFAULT_GAME_STATS = {
     "army_morale": 40,
     "public_support": 45,
     "prestige": 30,
-    "dravkor_threat": 60,
+    "rel_dravkor": 65,
+    "rel_selmara": 25,
+    "rel_varethis": 30,
+    "rel_kadir": 20,
 }
 
 STAT_KEYS = tuple(DEFAULT_GAME_STATS.keys())
@@ -19,8 +22,16 @@ STAT_MAX = {
     "army_morale": 100,
     "public_support": 100,
     "prestige": 100,
-    "dravkor_threat": 100,
+    "rel_dravkor": 100,
+    "rel_selmara": 100,
+    "rel_varethis": 100,
+    "rel_kadir": 100,
 }
+
+STAT_SELECT = (
+    "treasury,army_morale,public_support,prestige,"
+    "rel_dravkor,rel_selmara,rel_varethis,rel_kadir"
+)
 
 
 def ensure_game_stats(session_id: str) -> dict:
@@ -30,7 +41,7 @@ def ensure_game_stats(session_id: str) -> dict:
     try:
         resp = (
             supabase.table("game_stats")
-            .select("treasury,army_morale,public_support,prestige,dravkor_threat")
+            .select(STAT_SELECT)
             .eq("session_id", session_id)
             .execute()
         )

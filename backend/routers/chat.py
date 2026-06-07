@@ -52,7 +52,10 @@ def _parse_stats_tag(text: str) -> dict:
             key, val = part.split(":", 1)
             key = key.strip()
             val = val.strip().replace("+", "")
-            valid_keys = {"treasury", "army_morale", "public_support", "prestige", "dravkor_threat"}
+            valid_keys = {
+                "treasury", "army_morale", "public_support", "prestige",
+                "rel_dravkor", "rel_selmara", "rel_varethis", "rel_kadir",
+            }
             if key in valid_keys:
                 try:
                     delta[key] = int(val)

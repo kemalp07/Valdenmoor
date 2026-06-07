@@ -198,171 +198,149 @@ function isEmptyUserMessage(item: Message): boolean {
   return item.role === 'user' && (!item.text || item.text.trim() === '');
 }
 
-const STAT_TRANSITION = { transition: 'width 0.3s ease, background-color 0.3s ease' } as any;
-
-function StatCard({
-  icon,
-  label,
-  value,
-  max,
-  color,
-  displayValue,
-}: {
-  icon: string;
-  label: string;
-  value: number;
-  max: number;
-  color: string;
-  displayValue: string;
-}) {
-  const pct = Math.min(100, Math.round((value / max) * 100));
-
-  return (
-    <View style={statsBarStyles.card}>
-      <View style={statsBarStyles.cardHeader}>
-        <Text style={statsBarStyles.cardIcon}>{icon}</Text>
-        <Text style={statsBarStyles.cardLabel}>{label}</Text>
-        <Text style={[statsBarStyles.cardValue, { color }]}>{displayValue}</Text>
-      </View>
-      <View style={statsBarStyles.barBg}>
-        <View
-          style={[
-            statsBarStyles.barFill,
-            { width: `${pct}%` as any, backgroundColor: color },
-            STAT_TRANSITION,
-          ]}
-        />
-      </View>
-    </View>
-  );
-}
-
 function StatsBar({ stats }: { stats: Record<string, number> | null }) {
   if (!stats) return null;
 
-  const treasury = stats.treasury ?? 0;
-  const armyMorale = stats.army_morale ?? 0;
-  const publicSupport = stats.public_support ?? 0;
-  const prestige = stats.prestige ?? 0;
-  const dravkor = stats.dravkor_threat ?? 0;
-  const dravkorColor = dravkor > 70 ? '#e74c3c' : dravkor < 40 ? '#2ecc71' : '#e67e22';
-  const dravkorPct = Math.min(100, dravkor);
+  const mainStats = [
+    {
+      key: 'treasury',
+      icon: '💰',
+      value: stats.treasury ?? 0,
+      format: (v: number) => String(v),
+      critical: 150,
+      warning: 300,
+      max: 1000,
+      inverted: false,
+    },
+    {
+      key: 'army_morale',
+      icon: '⚔️',
+      value: stats.army_morale ?? 0,
+      format: (v: number) => `${v}%`,
+      critical: 20,
+      warning: 40,
+      max: 100,
+      inverted: false,
+    },
+    {
+      key: 'public_support',
+      icon: '👥',
+      value: stats.public_support ?? 0,
+      format: (v: number) => `${v}%`,
+      critical: 20,
+      warning: 35,
+      max: 100,
+      inverted: false,
+    },
+    {
+      key: 'prestige',
+      icon: '👑',
+      value: stats.prestige ?? 0,
+      format: (v: number) => `${v}%`,
+      critical: 15,
+      warning: 30,
+      max: 100,
+      inverted: false,
+    },
+  ];
+
+  const relations = [
+    {
+      key: 'rel_dravkor',
+      label: 'Dravkor',
+      value: stats.rel_dravkor ?? (stats as Record<string, number>).dravkor_threat ?? 65,
+    },
+    { key: 'rel_selmara', label: 'Selmara', value: stats.rel_selmara ?? 25 },
+    { key: 'rel_varethis', label: 'Varethis', value: stats.rel_varethis ?? 30 },
+    { key: 'rel_kadir', label: 'Kadir', value: stats.rel_kadir ?? 20 },
+  ];
+
+  const getRelColor = (v: number) => {
+    if (v >= 71) return '#e74c3c';
+    if (v >= 41) return '#e67e22';
+    return '#2ecc71';
+  };
 
   return (
     <View style={statsBarStyles.container}>
-      <View style={statsBarStyles.gridRow}>
-        <StatCard
-          icon="💰"
-          label="Hazine"
-          value={treasury}
-          max={1000}
-          color="#c9a84c"
-          displayValue={String(treasury)}
-        />
-        <StatCard
-          icon="⚔️"
-          label="Ordu"
-          value={armyMorale}
-          max={100}
-          color="#e74c3c"
-          displayValue={`${armyMorale}%`}
-        />
-      </View>
-      <View style={statsBarStyles.gridRow}>
-        <StatCard
-          icon="👥"
-          label="Halk"
-          value={publicSupport}
-          max={100}
-          color="#2ecc71"
-          displayValue={`${publicSupport}%`}
-        />
-        <StatCard
-          icon="👑"
-          label="Prestij"
-          value={prestige}
-          max={100}
-          color="#9b59b6"
-          displayValue={`${prestige}%`}
-        />
-      </View>
-      <View style={statsBarStyles.dravkorCard}>
-        <View style={statsBarStyles.cardHeader}>
-          <Text style={statsBarStyles.cardIcon}>☠️</Text>
-          <Text style={statsBarStyles.cardLabel}>Dravkor Tehdidi</Text>
-          <Text style={[statsBarStyles.cardValue, { color: dravkorColor }]}>{dravkor}%</Text>
-        </View>
-        <View style={statsBarStyles.barBg}>
-          <View
-            style={[
-              statsBarStyles.barFill,
-              { width: `${dravkorPct}%` as any, backgroundColor: dravkorColor },
-              STAT_TRANSITION,
-            ]}
-          />
-        </View>
-      </View>
+      {mainStats.map((item, index) => {
+        const isCritical = item.value <= item.critical;
+        const isWarning = item.value <= item.warning;
+        const color = isCritical ? '#e74c3c' : isWarning ? '#e67e22' : 'rgba(201,168,76,0.75)';
+        return (
+          <React.Fragment key={item.key}>
+            {index > 0 && <Text style={statsBarStyles.separator}>·</Text>}
+            <View style={statsBarStyles.item}>
+              <Text style={statsBarStyles.icon}>{item.icon}</Text>
+              <Text style={[statsBarStyles.value, { color }]}>
+                {item.format(item.value)}
+              </Text>
+            </View>
+          </React.Fragment>
+        );
+      })}
+
+      <Text style={statsBarStyles.separator}>  |  </Text>
+
+      {relations.map((rel, index) => (
+        <React.Fragment key={rel.key}>
+          {index > 0 && <Text style={statsBarStyles.separator}>·</Text>}
+          <View style={statsBarStyles.item}>
+            <View style={[statsBarStyles.dot, { backgroundColor: getRelColor(rel.value) }]} />
+            <Text style={[statsBarStyles.relLabel, { color: getRelColor(rel.value) }]}>
+              {rel.label} {rel.value}
+            </Text>
+          </View>
+        </React.Fragment>
+      ))}
     </View>
   );
 }
 
 const statsBarStyles = StyleSheet.create({
   container: {
-    width: '100%',
-    maxWidth: 720,
-    gap: 8,
-    marginBottom: 10,
-  },
-  gridRow: {
     flexDirection: 'row',
-    gap: 8,
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(201,168,76,0.12)',
+    gap: 2,
+    rowGap: 4,
   },
-  card: {
-    flex: 1,
-    backgroundColor: 'rgba(10, 6, 4, 0.7)',
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(201, 168, 76, 0.15)',
-  },
-  dravkorCard: {
-    backgroundColor: 'rgba(10, 6, 4, 0.7)',
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(201, 168, 76, 0.15)',
-  },
-  cardHeader: {
+  item: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 6,
+    gap: 4,
+    paddingHorizontal: 5,
   },
-  cardIcon: {
-    fontSize: 13,
-  },
-  cardLabel: {
-    flex: 1,
+  icon: {
     fontSize: 11,
-    color: 'rgba(245, 230, 200, 0.85)',
-    fontFamily: Platform.OS === 'web' ? 'Cinzel, serif' : undefined,
   },
-  cardValue: {
+  value: {
     fontSize: 11,
     fontWeight: '600',
     fontFamily: Platform.OS === 'web' ? 'Cinzel, serif' : undefined,
+    letterSpacing: 0.5,
   },
-  barBg: {
-    height: 3,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 2,
-    overflow: 'hidden',
+  separator: {
+    color: 'rgba(201,168,76,0.25)',
+    fontSize: 10,
   },
-  barFill: {
-    height: '100%',
-    borderRadius: 2,
+  dot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    marginRight: 3,
+  },
+  relLabel: {
+    fontSize: 10,
+    fontFamily: Platform.OS === 'web' ? 'Cinzel, serif' : undefined,
+    letterSpacing: 0.3,
+    opacity: 0.85,
   },
 });
 
@@ -1118,6 +1096,8 @@ export const ChatScreen = ({ navigation }: any) => {
               </View>
             </View>
 
+            <StatsBar stats={gameStats} />
+
             <FlatList
               ref={flatListRef}
               data={messages}
@@ -1170,7 +1150,6 @@ export const ChatScreen = ({ navigation }: any) => {
             />
 
             <View style={styles.inputArea}>
-              <StatsBar stats={gameStats} />
               <Text style={styles.inputTip}>{inputTips[tipIndex]}</Text>
               <View style={[styles.inputBox, styles.inputBoxSpacing]}>
                 <TextInput

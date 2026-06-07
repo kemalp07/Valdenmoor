@@ -60,7 +60,10 @@ CREATE TABLE game_stats (
   army_morale INTEGER DEFAULT 40,
   public_support INTEGER DEFAULT 45,
   prestige INTEGER DEFAULT 30,
-  dravkor_threat INTEGER DEFAULT 60,
+  rel_dravkor INTEGER DEFAULT 65,
+  rel_selmara INTEGER DEFAULT 25,
+  rel_varethis INTEGER DEFAULT 30,
+  rel_kadir INTEGER DEFAULT 20,
   updated_at TIMESTAMP DEFAULT NOW(),
   UNIQUE(session_id)
 );
