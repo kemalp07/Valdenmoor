@@ -12,7 +12,15 @@ import {
   TextInput,
   Animated,
 } from 'react-native';
-import { useAppContext, Character, loadAllCharactersFromDB, saveCharacterToDB } from '../context/AppContext';
+import {
+  useAppContext,
+  Character,
+  CHARACTERS_STORAGE_KEY,
+  ACTIVE_CHARACTER_STORAGE_KEY,
+  loadStoredCharacters,
+  loadAllCharactersFromDB,
+  saveCharacterToDB,
+} from '../context/AppContext';
 import { API_BASE } from '../config/api';
 import { t } from '../i18n/translations';
 
@@ -63,8 +71,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation }
 
   useEffect(() => {
     const loadFromDb = async () => {
-      const saved = localStorage.getItem('hp_characters');
-      if (saved && JSON.parse(saved).length > 0) return;
+      if (loadStoredCharacters().length > 0) return;
       const fromDb = await loadAllCharactersFromDB();
       if (fromDb.length > 0) {
         setCharacters(fromDb);
@@ -180,10 +187,11 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation }
       });
       const updated = characters.filter((c: any) => c.id !== deleteTarget.id);
       setCharacters(updated);
-      localStorage.setItem('hp_characters', JSON.stringify(updated));
-      const activeId = localStorage.getItem('hp_active_character_id');
+      localStorage.setItem(CHARACTERS_STORAGE_KEY, JSON.stringify(updated));
+      const activeId = localStorage.getItem(ACTIVE_CHARACTER_STORAGE_KEY);
       if (activeId === deleteTarget.id) {
-        localStorage.removeItem('hp_active_character_id');
+        localStorage.removeItem(ACTIVE_CHARACTER_STORAGE_KEY);
+        setActiveCharacter(null);
       }
     } catch (e) {
       console.error(e);

@@ -708,6 +708,12 @@ export const ChatScreen = ({ navigation }: any) => {
   const openingRequested = useRef(false);
 
   useEffect(() => {
+    setHistoryLoaded(false);
+    openingRequested.current = false;
+    setMessages([]);
+  }, [sessionId, setMessages]);
+
+  useEffect(() => {
     if (!activeCharacter || !historyLoaded || openingRequested.current) return;
     if (messages.length > 0) return;
 
@@ -1025,7 +1031,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   header: {
-    height: 64,
+    height: 72,
     backgroundColor: 'rgba(5, 3, 1, 0.88)',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.08)',
@@ -1036,8 +1042,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerCrest: {
-    width: 44,
-    height: 44,
+    width: 56,
+    height: 56,
     marginRight: 10,
   },
   headerTextBlock: {

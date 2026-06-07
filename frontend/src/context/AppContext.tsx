@@ -44,9 +44,56 @@ export type AppContextType = {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-const KNOWN_SESSIONS_KEY = 'hp_known_session_ids';
+export const CHARACTERS_STORAGE_KEY = 'fantasy_characters';
+export const ACTIVE_CHARACTER_STORAGE_KEY = 'fantasy_active_character_id';
+const KNOWN_SESSIONS_KEY = 'fantasy_known_session_ids';
+
+const LEGACY_CHARACTERS_KEY = 'hp_characters';
+const LEGACY_ACTIVE_CHARACTER_KEY = 'hp_active_character_id';
+const LEGACY_KNOWN_SESSIONS_KEY = 'hp_known_session_ids';
+
+function migrateStorageKey(newKey: string, oldKey: string): string | null {
+  const current = localStorage.getItem(newKey);
+  if (current !== null) return current;
+
+  const legacy = localStorage.getItem(oldKey);
+  if (legacy !== null) {
+    localStorage.setItem(newKey, legacy);
+    localStorage.removeItem(oldKey);
+    return legacy;
+  }
+
+  return null;
+}
+
+export function loadStoredCharacters(): Character[] {
+  const saved = migrateStorageKey(CHARACTERS_STORAGE_KEY, LEGACY_CHARACTERS_KEY);
+  if (!saved) return [];
+
+  try {
+    const parsed = JSON.parse(saved);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function loadStoredActiveCharacterId(): string | null {
+  return migrateStorageKey(ACTIVE_CHARACTER_STORAGE_KEY, LEGACY_ACTIVE_CHARACTER_KEY);
+}
+
+function resolveActiveCharacter(chars: Character[]): Character | null {
+  const activeId = loadStoredActiveCharacterId();
+  if (!activeId) return null;
+
+  const match = chars.find((c) => c.id === activeId);
+  if (!match?.sessionId) return null;
+
+  return match;
+}
 
 function trackKnownSessionId(sessionId: string) {
+  migrateStorageKey(KNOWN_SESSIONS_KEY, LEGACY_KNOWN_SESSIONS_KEY);
   const ids: string[] = JSON.parse(localStorage.getItem(KNOWN_SESSIONS_KEY) || '[]');
   if (!ids.includes(sessionId)) {
     localStorage.setItem(KNOWN_SESSIONS_KEY, JSON.stringify([...ids, sessionId]));
@@ -105,6 +152,7 @@ export async function loadCharactersFromDB(sessionId: string): Promise<Character
 }
 
 export async function loadAllCharactersFromDB(): Promise<Character[]> {
+  migrateStorageKey(KNOWN_SESSIONS_KEY, LEGACY_KNOWN_SESSIONS_KEY);
   const sessionIds: string[] = JSON.parse(localStorage.getItem(KNOWN_SESSIONS_KEY) || '[]');
   const merged = new Map<string, Character>();
   for (const sid of sessionIds) {
@@ -117,20 +165,14 @@ export async function loadAllCharactersFromDB(): Promise<Character[]> {
 }
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [characters, setCharacters] = useState<Character[]>(
-    () => {
-      const saved = localStorage.getItem('hp_characters');
-      return saved ? JSON.parse(saved) : [];
-    }
+  const initialCharacters = loadStoredCharacters();
+
+  const [characters, setCharacters] = useState<Character[]>(initialCharacters);
+  const [activeCharacter, setActiveCharacter] = useState<Character | null>(() =>
+    resolveActiveCharacter(initialCharacters),
   );
-  const [activeCharacter, setActiveCharacter] = useState<Character | null>(() => {
-    const activeCharId = localStorage.getItem('hp_active_character_id');
-    const characters = JSON.parse(localStorage.getItem('hp_characters') || '[]');
-    const activeChar = characters.find((c: any) => c.id === activeCharId);
-    return activeChar || null;
-  });
   const sessionId = useMemo(() => {
-    return activeCharacter?.sessionId || crypto.randomUUID();
+    return activeCharacter?.sessionId || '';
   }, [activeCharacter]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -144,26 +186,35 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   useEffect(() => {
-    localStorage.setItem('hp_characters', JSON.stringify(characters));
+    localStorage.setItem(CHARACTERS_STORAGE_KEY, JSON.stringify(characters));
   }, [characters]);
 
   useEffect(() => {
-    const syncFromDb = async () => {
-      const saved = localStorage.getItem('hp_characters');
-      if (saved && JSON.parse(saved).length > 0) return;
-      const fromDb = await loadAllCharactersFromDB();
-      if (fromDb.length > 0) {
-        setCharacters(fromDb);
+    const syncOnStartup = async () => {
+      let chars = loadStoredCharacters();
+
+      if (chars.length === 0) {
+        const fromDb = await loadAllCharactersFromDB();
+        if (fromDb.length > 0) {
+          chars = fromDb;
+          setCharacters(fromDb);
+        }
+      }
+
+      const resolved = resolveActiveCharacter(chars);
+      if (resolved) {
+        setActiveCharacter(resolved);
       }
     };
-    syncFromDb();
+
+    syncOnStartup();
   }, []);
 
   useEffect(() => {
     if (activeCharacter) {
-      localStorage.setItem('hp_active_character_id', activeCharacter.id);
+      localStorage.setItem(ACTIVE_CHARACTER_STORAGE_KEY, activeCharacter.id);
     } else {
-      localStorage.removeItem('hp_active_character_id');
+      localStorage.removeItem(ACTIVE_CHARACTER_STORAGE_KEY);
     }
   }, [activeCharacter]);
 
