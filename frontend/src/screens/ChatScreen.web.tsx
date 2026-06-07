@@ -101,7 +101,8 @@ const TAG_AVATARS: Record<string, any> = {
 };
 
 const JSON_BLOCK_REGEX = /```json[\s\S]*?```/g;
-const INLINE_STATS_REGEX = /\{[\s\S]*?"stats_delta"[\s\S]*?\}/g;
+// Nested JSON'ı tam temizler: {"stats_delta": {"key": val}}
+const INLINE_STATS_REGEX = /\{[^{}]*"stats_delta"[^{}]*\{[^{}]*\}[^{}]*\}/g;
 
 function cleanAiDisplayText(text: string): string {
   return text
@@ -110,33 +111,53 @@ function cleanAiDisplayText(text: string): string {
     .trim();
 }
 
+function mergeStatsDelta(target: Record<string, number>, delta: Record<string, unknown>): boolean {
+  let found = false;
+  for (const [key, value] of Object.entries(delta)) {
+    if (typeof value === 'number' && !Number.isNaN(value)) {
+      target[key] = value;
+      found = true;
+    } else if (typeof value === 'string') {
+      const num = Number(value.replace(/^\+/, ''));
+      if (!Number.isNaN(num)) {
+        target[key] = num;
+        found = true;
+      }
+    }
+  }
+  return found;
+}
+
 function parseStatsDelta(text: string): Record<string, number> | null {
-  const blockRegex = /```json\s*([\s\S]*?)```/g;
   const merged: Record<string, number> = {};
   let found = false;
   let match: RegExpExecArray | null;
 
+  const blockRegex = /```json\s*([\s\S]*?)```/g;
   while ((match = blockRegex.exec(text)) !== null) {
     try {
       const normalizedJson = match[1].replace(/:\s*\+(\d+)/g, ': $1');
       const parsed = JSON.parse(normalizedJson) as { stats_delta?: Record<string, unknown> };
       const delta = parsed?.stats_delta;
-      if (!delta || typeof delta !== 'object') continue;
-
-      for (const [key, value] of Object.entries(delta)) {
-        if (typeof value === 'number' && !Number.isNaN(value)) {
-          merged[key] = value;
-          found = true;
-        } else if (typeof value === 'string') {
-          const num = Number(value.replace(/^\+/, ''));
-          if (!Number.isNaN(num)) {
-            merged[key] = num;
-            found = true;
-          }
-        }
+      if (delta && typeof delta === 'object' && mergeStatsDelta(merged, delta)) {
+        found = true;
       }
     } catch {
       // Ignore malformed JSON blocks.
+    }
+  }
+
+  const inlineRegex = /\{[^{}]*"stats_delta"[^{}]*\{[^{}]*\}[^{}]*\}/g;
+  while ((match = inlineRegex.exec(text)) !== null) {
+    try {
+      const normalizedJson = match[0].replace(/:\s*\+(\d+)/g, ': $1');
+      const parsed = JSON.parse(normalizedJson) as { stats_delta?: Record<string, unknown> };
+      const delta = parsed?.stats_delta;
+      if (delta && typeof delta === 'object' && mergeStatsDelta(merged, delta)) {
+        found = true;
+      }
+    } catch {
+      // Ignore malformed inline JSON.
     }
   }
 
@@ -177,23 +198,7 @@ function isEmptyUserMessage(item: Message): boolean {
   return item.role === 'user' && (!item.text || item.text.trim() === '');
 }
 
-function StatsBar({ sessionId }: { sessionId: string }) {
-  const [stats, setStats] = React.useState<Record<string, number> | null>(null);
-
-  React.useEffect(() => {
-    if (!sessionId) return;
-    const fetchStats = async () => {
-      try {
-        const res = await fetch(`${API_BASE}/game-stats?session_id=${sessionId}`);
-        const data = await res.json();
-        if (data.stats) setStats(data.stats);
-      } catch {}
-    };
-    fetchStats();
-    const interval = setInterval(fetchStats, 8000);
-    return () => clearInterval(interval);
-  }, [sessionId]);
-
+function StatsBar({ stats }: { stats: Record<string, number> | null }) {
   if (!stats) return null;
 
   const items = [
@@ -852,6 +857,7 @@ export const ChatScreen = ({ navigation }: any) => {
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
+  const [gameStats, setGameStats] = useState<Record<string, number> | null>(null);
 
   const canSend = useMemo(() => !isLoading, [isLoading]);
 
@@ -869,6 +875,7 @@ export const ChatScreen = ({ navigation }: any) => {
     setHistoryLoaded(false);
     openingRequested.current = false;
     setMessages([]);
+    setGameStats(null);
   }, [sessionId, setMessages]);
 
   useEffect(() => {
@@ -887,6 +894,9 @@ export const ChatScreen = ({ navigation }: any) => {
           sessionId,
           characterProfile,
         );
+        if (aiResponse.gameStats) {
+          setGameStats(aiResponse.gameStats);
+        }
         applyLocationFromAi(aiResponse.location);
         const displayText = await processAiResponseText(aiResponse.text, sessionId);
         setMessages([
@@ -982,6 +992,9 @@ export const ChatScreen = ({ navigation }: any) => {
 
     try {
       const aiResponse = await sendAiMessage(nextMessages, userName, '', sessionId, characterProfile);
+      if (aiResponse.gameStats) {
+        setGameStats(aiResponse.gameStats);
+      }
       applyLocationFromAi(aiResponse.location);
       const displayText = await processAiResponseText(aiResponse.text, sessionId);
       if (aiResponse.narratorInjection) {
@@ -1048,7 +1061,7 @@ export const ChatScreen = ({ navigation }: any) => {
               </View>
             </View>
 
-            <StatsBar sessionId={sessionId} />
+            <StatsBar stats={gameStats} />
 
             <FlatList
               ref={flatListRef}

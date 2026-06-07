@@ -586,11 +586,17 @@ async def chat_endpoint(request: Request):
         except Exception:
             _final_points = house_points
 
+        try:
+            _final_stats = _ensure_game_stats(session_id)
+        except Exception:
+            _final_stats = {}
+
         done = json.dumps({
             "type": "done",
             "character_name": char_name,
             "house_points": _final_points,
             "location": get_location(session_id),
+            "game_stats": _final_stats,
             "simulation_params": {
                 "session_id": session_id,
                 "player_house": game_state.get("player_house", "gryffindor"),

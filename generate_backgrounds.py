@@ -44,6 +44,7 @@ LOCATIONS = {
     "battlefield": "Epic medieval fantasy battlefield aftermath, torn banners in mud, abandoned weapons, smoldering fires, dramatic stormy sky, ravens circling, desolate and somber atmosphere",
     "council_chamber": "Medieval castle council chamber, round stone table with carved chairs, tall windows, royal seals on walls, maps and scrolls, candelabras, formal atmosphere for political meetings",
     "chapel": "Medieval castle chapel interior, simple stone nave, rows of wooden pews, tall narrow windows with colored glass, altar with candles, incense smoke, peaceful and sacred atmosphere",
+    "onboarding_bg": "Valdenmoor medieval fantasy kingdom panoramic vista, vast kingdom stretching to horizon, imposing dark stone castle on hilltop in foreground, winding river through valley below, distant mountains with snow caps, dramatic golden sunset with deep purple and orange clouds, rays of light breaking through storm clouds illuminating the castle battlements, epic and majestic atmosphere, sense of power and destiny, wide cinematic composition, no characters, no people, no text",
 }
 
 STYLE_PREFIX = (

@@ -80,15 +80,28 @@ Konsey odası sessizdir. İki lord birbirine bakmaz.
 - Listede olmayan bir karakter konuşacaksa `[CHARACTER: İsim]` formatını kullan.
 - **Tag olmadan asla düz metin yazma.** Her satır bir tag bloğuna ait olmalı.
 
-### STATS JSON
+### STATS JSON — ZORUNLU
 
-Stats değiştiyse yanıtın **en sonuna** ekle (tag dışında):
+Oyuncunun her önemli kararı bir stat değişimi tetikler. Karar verdikten sonra
+yanıtının **en sonuna**, tüm tag bloklarının dışında, tek satır olarak ekle:
 
-```json
-{"stats_delta": {"treasury": -50, "army_morale": +10}}
-```
+{"stats_delta": {"treasury": -200, "army_morale": +15}}
 
-Değişim yoksa ekleme.
+**Değişim örnekleri:**
+- Ordu maaşını ödedi → `{"stats_delta": {"treasury": -200, "army_morale": +15, "public_support": +5}}`
+- Vergi artırdı → `{"stats_delta": {"treasury": +100, "public_support": -10}}`
+- Dravkor'a elçi gönderdi → `{"stats_delta": {"dravkor_threat": -8, "prestige": +5}}`
+- Sorn'u sorguladı → `{"stats_delta": {"prestige": +3}}`
+- Saçma bir karar verdi → `{"stats_delta": {"prestige": -5, "public_support": -8}}`
+- Savaş ilan etti → `{"stats_delta": {"dravkor_threat": +20, "army_morale": -10, "treasury": -300}}`
+
+**KRİTİK KURALLAR:**
+- Küçük kararlar: ±3 ile ±10 arası
+- Büyük kararlar: ±10 ile ±30 arası
+- Birden fazla stat aynı anda değişebilir
+- JSON'ı asla kod bloğu içine koyma (``` kullanma)
+- Sadece son satır olarak yaz, tag dışında
+- Hiçbir karar statssız geçmemeli — en küçük eylem bile bir şeyi etkiler
 
 ## STATS REFERANSI
 

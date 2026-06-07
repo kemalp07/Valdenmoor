@@ -3,11 +3,12 @@ import { API_BASE } from '../config/api';
 
 export type Message = { id: string; role: 'user' | 'ai'; text: string; characterName?: string };
 
-type AIMessageResult = {
+export type AIMessageResult = {
   text: string;
   characterName?: string;
   narratorInjection?: string;
   location?: string;
+  gameStats?: Record<string, number>;
 };
 
 type ApiMessage = {
@@ -120,6 +121,7 @@ export async function sendMessage(
     let characterName = '';
     let narratorInjection: string | undefined;
     let location: string | undefined;
+    let gameStats: Record<string, number> | undefined;
 
     for (const line of raw.split('\n')) {
       if (!line.startsWith('data: ')) {
@@ -138,6 +140,7 @@ export async function sendMessage(
           character_name?: string;
           narrator_injection?: string;
           location?: string;
+          game_stats?: Record<string, number>;
         };
         if (parsed.type === 'meta') {
           narratorInjection = parsed.narrator_injection;
@@ -152,6 +155,9 @@ export async function sendMessage(
           }
           if (parsed.location) {
             location = parsed.location;
+          }
+          if (parsed.game_stats) {
+            gameStats = parsed.game_stats;
           }
         }
       } catch {
@@ -168,6 +174,7 @@ export async function sendMessage(
       characterName: characterName || undefined,
       narratorInjection,
       location,
+      gameStats,
     };
   } catch (error) {
     console.error('sendMessage failed:', error);
