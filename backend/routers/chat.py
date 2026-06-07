@@ -54,7 +54,7 @@ def _parse_stats_tag(text: str) -> dict:
             val = val.strip().replace("+", "")
             valid_keys = {
                 "treasury", "army_morale", "public_support", "prestige",
-                "rel_dravkor", "rel_selmara", "rel_varethis", "rel_kadir",
+                "friendship_dravkor", "friendship_selmara", "friendship_varethis", "friendship_kadir",
             }
             if key in valid_keys:
                 try:

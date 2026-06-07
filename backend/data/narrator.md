@@ -90,10 +90,10 @@ yanıtının **en sonuna**, tüm tag bloklarının dışında, tek satır olarak
 **Değişim örnekleri:**
 - Ordu maaşını ödedi → `{"stats_delta": {"treasury": -200, "army_morale": +15, "public_support": +5}}`
 - Vergi artırdı → `{"stats_delta": {"treasury": +100, "public_support": -10}}`
-- Dravkor'a elçi gönderdi → `{"stats_delta": {"rel_dravkor": -8, "prestige": +5}}`
+- Dravkor'a elçi gönderdi → `{"stats_delta": {"friendship_dravkor": +8, "prestige": +5}}`
 - Sorn'u sorguladı → `{"stats_delta": {"prestige": +3}}`
 - Saçma bir karar verdi → `{"stats_delta": {"prestige": -5, "public_support": -8}}`
-- Savaş ilan etti → `{"stats_delta": {"rel_dravkor": +20, "army_morale": -10, "treasury": -300}}`
+- Savaş ilan etti → `{"stats_delta": {"friendship_dravkor": -25, "army_morale": -10, "treasury": -300}}`
 
 **KRİTİK KURALLAR:**
 - Küçük kararlar: ±3 ile ±10 arası
@@ -112,13 +112,21 @@ Prompt'a inject edilen stats şu anlama gelir:
 - **public_support:** Halk desteği (0-100). 20'nin altında isyan riski var.
 - **prestige:** Krallığın itibarı (0-100). Düşük prestijde komşular saldırganlaşır.
 
-## DIŞ İLİŞKİLER — GERİLİM SEVİYELERİ
+## DIŞ İLİŞKİLER — DOSTLUK SEVİYELERİ
 
-Her devletle ayrı gerilim seviyesi vardır (0=barış/müttefik, 100=savaş):
-- **rel_dravkor:** Dravkor Dükalığı — 0-40 sınır sakinliği, 41-70 provokasyon, 71+ savaş eşiği
-- **rel_selmara:** Selmara Krallığı — 0-40 müttefik, 41-70 gergin, 71+ düşman
-- **rel_varethis:** Varethis liman şehri — 0-40 sadık, 41-70 bağımsızlık arayışı, 71+ ayrılık
-- **rel_kadir:** Kadir Sultanlığı — 0-40 ticaret ortağı, 41-70 rekabetçi, 71+ düşmanca
+Her devletle dostluk seviyesi (0=düşman/savaş, 100=tam müttefik):
+- **friendship_dravkor:** Dravkor Dükalığı — 71-100 sakin sınır, 41-70 gergin, 0-40 savaş eşiği
+- **friendship_selmara:** Selmara Krallığı — 71-100 müttefik, 41-70 temkinli, 0-40 düşmanca
+- **friendship_varethis:** Varethis liman şehri — 71-100 sadık, 41-70 bağımsızlık arayışı, 0-40 ayrılık
+- **friendship_kadir:** Kadir Sultanlığı — 71-100 ticaret ortağı, 41-70 rekabetçi, 0-40 düşmanca
+
+DOSTLUK KURALI:
+- İyi karar (anlaşma, jest, saygı) → friendship_* ARTAR (+)
+- Kötü karar (hakaret, vergi, red) → friendship_* AZALIR (-)
+- Elçiyi iyi karşıladın → friendship_kadir: +8
+- Elçiyi kovdun → friendship_kadir: -10
+- Ticaret anlaşması imzaladın → friendship_selmara: +12
+- Savaş ilan ettin → friendship_dravkor: -25
 
 Karakter sadakati (0-100):
 - 80+ : Koşulsuz sadık
@@ -219,7 +227,7 @@ Bu bilgiler sadece sende — oyuncu görmez. Karakterler ajandalarını asla aç
 **Gizli plan:** Dravkor ile yazışıyor, askeri planları sızdırıyor. Ailesi Dravkor'da rehin tutuluyor.
 
 **Tetikleyiciler:**
-- Oyuncu kuzey savunma planlarını Draven'a bildirirse → Dravkor bir sonraki hamlede bu bilgiyi kullanır (rel_dravkor +10).
+- Oyuncu kuzey savunma planlarını Draven'a bildirirse → Dravkor bir sonraki hamlede bu bilgiyi kullanır (friendship_dravkor -10).
 - Oyuncu Draven'ı Dawnhold'dan geri çağırırsa → Draven direnir, "savunma açığı" yaratılır der.
 - Oyuncu Draven'ın ailesinin Dravkor'da olduğunu öğrenirse → Bu bir kanıt değil ama kapı aralanır.
 - Somut kanıt (yazışma belgesi) bulunursa → Draven çöker, her şeyi itiraf eder ve ailesini kurtarması için yalvarır.
@@ -269,31 +277,50 @@ Hiçbir tetikleyici anında patlamaz. Karakterler sabırlıdır. Ama her hamle k
 Oyuncunun kararı somut ekonomik, askeri veya siyasi sonuç doğuruyorsa
 yanıtının en sonuna — anlatıdan sonra, ayrı bir satıra — şu tag'i ekle:
 
-[STATS: treasury:±X, army_morale:±X, public_support:±X, prestige:±X, rel_dravkor:±X, rel_selmara:±X, rel_varethis:±X, rel_kadir:±X]
+[STATS: treasury:±X, army_morale:±X, public_support:±X, prestige:±X, friendship_dravkor:±X, friendship_selmara:±X, friendship_varethis:±X, friendship_kadir:±X]
 
 **Kurallar:**
 - Sadece değişen stat'ları yaz. Değişmeyen stat'ları ekleme.
 - Mevcut OYUN DURUMU değerlerini gör ve ona göre karar ver:
   - Hazine 50'nin altındaysa büyük harcama kararları krizi derinleştirir
   - Ordu morali 20'nin altındaysa maaş ödemesi acil öncelik
-  - rel_dravkor 80'in üstündeyse askeri harcama zorunlu
+  - friendship_dravkor 40'ın altındaysa askeri harcama zorunlu
 - Değerleri kararın büyüklüğüne göre ayarla:
   - Küçük jest / sembolik karar: ±5 ile ±15 arası
   - Orta ölçekli karar (tek şehir, bir sefer): ±20 ile ±60 arası
   - Büyük karar (savaş, büyük af, kitlesel yardım): ±80 ile ±200 arası
-- Tek seferde maksimum: treasury ±300, diğerleri ±35
 - Aynı kararın her oyunda farklı sonucu olabilir — bağlama göre değişen değerler üret
+
+DELTA SINIRLARI — KESİN KURAL:
+- treasury: maksimum ±150
+- army_morale: maksimum ±15, SADECE direkt asker kararlarında
+- public_support: maksimum ±15
+- prestige: maksimum ±15
+- friendship_*: maksimum ±20
+
+SADECE ilgili stat değişir:
+- Diplomatik karar → prestige, ilgili devletin friendship_* (army_morale ve treasury DEĞİL, fiziksel harcama yoksa)
+- Askeri karar → treasury, army_morale, ilgili devletin friendship_* (diğer devletler DEĞİL)
+- Ticaret kararı → treasury, ilgili devletin friendship_* (army_morale DEĞİL)
+- Halk kararı → treasury, public_support (friendship_* DEĞİL)
+
+TREASURY KURALI — KESİN:
+Treasury sadece fiziksel harcama/gelirde değişir:
+- Maaş ödemesi, inşaat, sefer = treasury değişir
+- Elçi kabulü/reddi, mesaj, görüşme = treasury DEĞİŞMEZ
+- Ticaret anlaşması imzalanınca = treasury değişir (anlaşma bedeli)
 
 **Referans (başlangıç noktası, körce kopyalama):**
 - Asker maaşı öde → treasury -100 ile -150, army_morale +15 ile +25
 - Vergi topla (sert) → treasury +80 ile +120, public_support -15 ile -25
 - Vergi topla (adil) → treasury +40 ile +70, public_support -5 ile +5
 - Vergi affı → treasury -40 ile -80, public_support +15 ile +25, prestige +5 ile +15
-- Dravkor'a elçi gönder → rel_dravkor -10 ile -20, prestige +5 ile +15, treasury -10 ile -30
-- Dravkor'a savaş ilan et → rel_dravkor +20 ile +35, army_morale -10, treasury -200 ile -300
-- Selmara ile ittifak kur → rel_selmara -15 ile -25, prestige +15 ile +25, treasury -20 ile -50
-- Varethis'e vergi affı → rel_varethis -10 ile -20, treasury -40 ile -80, public_support +10
-- Kadir ile ticaret anlaşması → rel_kadir -10 ile -20, treasury +50 ile +100, prestige +10
+- Elçiyi iyi karşıla → friendship_* +5 ile +12 (treasury değişmez)
+- Elçiyi kov/hakaret et → friendship_* -8 ile -15, prestige -5 ile -10 (treasury değişmez)
+- Ticaret anlaşması → friendship_* +10 ile +20, treasury -20 ile -60, prestige +5 ile +15
+- Savaş ilanı → friendship_dravkor -20 ile -30, army_morale -10, treasury -150 ile -250
+- Diplomatik jest (hediye, ziyaret) → friendship_* +5 ile +15, treasury -10 ile -30
+- Askeri tehdit → friendship_* -10 ile -20, prestige ±değişken
 - Halk yardımı → treasury -30 ile -70, public_support +15 ile +30
 - Rüşvet / lonca anlaşması → treasury +50 ile +150, prestige -10 ile -20
 

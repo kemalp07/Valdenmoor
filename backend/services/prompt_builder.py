@@ -114,10 +114,10 @@ def _format_game_stats(stats: Optional[dict]) -> str:
         f"- Ordu morali (army_morale): {stats.get('army_morale', 40)}",
         f"- Halk desteği (public_support): {stats.get('public_support', 45)}",
         f"- Prestij (prestige): {stats.get('prestige', 30)}",
-        f"- Dravkor gerilimi (rel_dravkor): {stats.get('rel_dravkor', 65)}",
-        f"- Selmara gerilimi (rel_selmara): {stats.get('rel_selmara', 25)}",
-        f"- Varethis gerilimi (rel_varethis): {stats.get('rel_varethis', 30)}",
-        f"- Kadir gerilimi (rel_kadir): {stats.get('rel_kadir', 20)}",
+        f"- Dravkor dostluğu (friendship_dravkor): {stats.get('friendship_dravkor', 35)} (0=düşman, 100=müttefik)",
+        f"- Selmara dostluğu (friendship_selmara): {stats.get('friendship_selmara', 75)} (0=düşman, 100=müttefik)",
+        f"- Varethis dostluğu (friendship_varethis): {stats.get('friendship_varethis', 70)} (0=düşman, 100=müttefik)",
+        f"- Kadir dostluğu (friendship_kadir): {stats.get('friendship_kadir', 80)} (0=düşman, 100=müttefik)",
     ])
 
 

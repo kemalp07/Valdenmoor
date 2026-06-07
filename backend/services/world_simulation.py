@@ -16,15 +16,15 @@ _STAT_BOUNDS = {
     "army_morale": (0, 100),
     "public_support": (0, 100),
     "prestige": (0, 100),
-    "rel_dravkor": (0, 100),
-    "rel_selmara": (0, 100),
-    "rel_varethis": (0, 100),
-    "rel_kadir": (0, 100),
+    "friendship_dravkor": (0, 100),
+    "friendship_selmara": (0, 100),
+    "friendship_varethis": (0, 100),
+    "friendship_kadir": (0, 100),
 }
 
 _STAT_SELECT = (
     "treasury,army_morale,public_support,prestige,"
-    "rel_dravkor,rel_selmara,rel_varethis,rel_kadir"
+    "friendship_dravkor,friendship_selmara,friendship_varethis,friendship_kadir"
 )
 
 
@@ -38,14 +38,14 @@ def _clamp(value: int, key: str) -> int:
 _WORLD_EVENTS = [
     {
         "id": "dravkor_scout",
-        "condition": lambda s: s.get("rel_dravkor", 0) >= 65,
+        "condition": lambda s: s.get("friendship_dravkor", 35) <= 35,
         "chance": 0.3,
         "narrator_injection": (
             "[NARRATOR]\nKuzeyden acil bir haberci geldi. "
             "Dawnhold yakınlarında Dravkor keşif birlikleri görüldü — "
             "sayıları normalin üçte biri. General Draven durum raporu istiyor."
         ),
-        "stats_delta": {"rel_dravkor": +3},
+        "stats_delta": {"friendship_dravkor": -3},
     },
     {
         "id": "treasury_warning",
@@ -83,7 +83,7 @@ _WORLD_EVENTS = [
     },
     {
         "id": "selmara_envoy",
-        "condition": lambda s: s.get("prestige", 30) >= 40 and s.get("rel_dravkor", 0) >= 55,
+        "condition": lambda s: s.get("prestige", 30) >= 40 and s.get("friendship_dravkor", 35) <= 45,
         "chance": 0.2,
         "narrator_injection": (
             "[NARRATOR]\nSelmara'dan beklenmedik bir elçi geldi. "
@@ -148,7 +148,7 @@ _WORLD_EVENTS = [
     },
     {
         "id": "northern_mine_report",
-        "condition": lambda s: s.get("rel_dravkor", 0) < 50,
+        "condition": lambda s: s.get("friendship_dravkor", 35) > 50,
         "chance": 0.25,
         "narrator_injection": (
             "[NARRATOR]\n"

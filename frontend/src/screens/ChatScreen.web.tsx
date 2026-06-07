@@ -245,20 +245,16 @@ function StatsBar({ stats }: { stats: Record<string, number> | null }) {
   ];
 
   const relations = [
-    {
-      key: 'rel_dravkor',
-      label: 'Dravkor',
-      value: stats.rel_dravkor ?? (stats as Record<string, number>).dravkor_threat ?? 65,
-    },
-    { key: 'rel_selmara', label: 'Selmara', value: stats.rel_selmara ?? 25 },
-    { key: 'rel_varethis', label: 'Varethis', value: stats.rel_varethis ?? 30 },
-    { key: 'rel_kadir', label: 'Kadir', value: stats.rel_kadir ?? 20 },
+    { key: 'friendship_dravkor', label: 'Dravkor', value: stats.friendship_dravkor ?? 35 },
+    { key: 'friendship_selmara', label: 'Selmara', value: stats.friendship_selmara ?? 75 },
+    { key: 'friendship_varethis', label: 'Varethis', value: stats.friendship_varethis ?? 70 },
+    { key: 'friendship_kadir', label: 'Kadir', value: stats.friendship_kadir ?? 80 },
   ];
 
   const getRelColor = (v: number) => {
-    if (v >= 71) return '#e74c3c';
-    if (v >= 41) return '#e67e22';
-    return '#2ecc71';
+    if (v >= 60) return '#2ecc71';
+    if (v >= 35) return '#e67e22';
+    return '#e74c3c';
   };
 
   return (
