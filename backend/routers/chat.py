@@ -297,8 +297,6 @@ async def chat_endpoint(request: Request):
 
     async def generate():
         nonlocal full_text
-        out_buf = ""
-        FLUSH_CHARS = 24
 
         meta = json.dumps({
             "type": "meta",
@@ -315,16 +313,9 @@ async def chat_endpoint(request: Request):
                 logger.debug("SYSTEM PROMPT (ilk 2000): %s", system_prompt[:2000])
             async for chunk in stream_vertex_ai(messages_for_model, model=model):
                 full_text += chunk
-                out_buf += chunk
-
-                if len(out_buf) >= FLUSH_CHARS or "\n" in out_buf:
-                    payload = json.dumps({"type": "chunk", "text": out_buf})
+                if chunk:
+                    payload = json.dumps({"type": "chunk", "text": chunk})
                     yield f"data: {payload}\n\n"
-                    out_buf = ""
-
-            if out_buf:
-                payload = json.dumps({"type": "chunk", "text": out_buf})
-                yield f"data: {payload}\n\n"
         except Exception as exc:
             try:
                 logs_dir = Path(__file__).resolve().parents[2] / "logs"
@@ -467,20 +458,24 @@ async def delete_message_endpoint(request: Request):
 async def edit_message_endpoint(request: Request):
     body = await request.json()
     session_id = body.get("session_id", "")
+    message_id = body.get("message_id")
     old_content = body.get("old_content", "")
     new_content = body.get("new_content", "")
     role = body.get("role", "user")
 
-    if not session_id or not old_content or not new_content:
-        raise HTTPException(status_code=400, detail="session_id, old_content ve new_content gerekli")
+    if not session_id or not new_content:
+        raise HTTPException(status_code=400, detail="session_id ve new_content gerekli")
 
     if old_content == new_content:
         return {"status": "ok"}
 
     if supabase:
-        supabase.table("messages").update({"content": new_content}).eq(
-            "session_id", session_id
-        ).eq("content", old_content).eq("role", role).execute()
+        if message_id and _is_uuid(message_id):
+            supabase.table("messages").update({"content": new_content}).eq("id", message_id).execute()
+        elif old_content:
+            supabase.table("messages").update({"content": new_content}).eq(
+                "session_id", session_id
+            ).eq("content", old_content).eq("role", role).execute()
 
     return {"status": "ok"}
 

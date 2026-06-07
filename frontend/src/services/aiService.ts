@@ -53,6 +53,7 @@ export async function updateMessage(
   oldContent: string,
   newContent: string,
   role: 'user' | 'assistant',
+  messageId?: string,
 ): Promise<void> {
   const trimmed = newContent.trim();
   if (!trimmed || trimmed === oldContent) return;
@@ -66,6 +67,7 @@ export async function updateMessage(
         old_content: oldContent,
         new_content: trimmed,
         role,
+        message_id: messageId,
       }),
     });
   } catch {

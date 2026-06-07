@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Image,
@@ -164,6 +164,12 @@ function TypingBubble({ language }: { language: Language }) {
   );
 }
 
+type DeleteConfirmState = {
+  title: string;
+  message: string;
+  onConfirm: () => void | Promise<void>;
+};
+
 type MessageEditProps = {
   item: Message;
   sessionId: string;
@@ -172,6 +178,7 @@ type MessageEditProps = {
   setEditText: (text: string) => void;
   setEditingId: (id: string | null) => void;
   setMessages: (msgs: Message[] | ((prev: Message[]) => Message[])) => void;
+  onRequestDelete: (opts: DeleteConfirmState) => void;
 };
 
 type MessageBubbleProps = MessageEditProps;
@@ -195,6 +202,15 @@ function applyAiResponseToMessages(
   return [...updated.filter((m) => m.id !== 'streaming'), aiMsg];
 }
 
+const STREAM_TICK_MS = 32;
+
+function nextStreamRevealStep(remaining: number): number {
+  if (remaining <= 0) return 0;
+  if (remaining > 120) return 3;
+  if (remaining > 60) return 2;
+  return 1;
+}
+
 async function deleteMessageItem(
   sessionId: string,
   item: Message,
@@ -203,6 +219,33 @@ async function deleteMessageItem(
 ) {
   setMessages((prev) => prev.filter((m) => m.id !== item.id));
   await deleteMessage(sessionId, item.text, role, item.id);
+}
+
+async function deleteAiBlockItem(
+  sessionId: string,
+  item: Message,
+  blockIndex: number,
+  language: Language,
+  setMessages: MessageEditProps['setMessages'],
+) {
+  const mergedBlocks = mergeTaggedBlocks(parseTaggedResponse(item.text, getTagNames(language)));
+
+  if (blockIndex < 0 || blockIndex >= mergedBlocks.length) {
+    return;
+  }
+
+  if (mergedBlocks.length === 1) {
+    await deleteMessageItem(sessionId, item, 'assistant', setMessages);
+    return;
+  }
+
+  mergedBlocks.splice(blockIndex, 1);
+  const newText = rebuildTaggedText(mergedBlocks);
+
+  setMessages((prev) =>
+    prev.map((m) => (m.id === item.id ? { ...m, text: newText } : m)),
+  );
+  await updateMessage(sessionId, item.text, newText, 'assistant', item.id);
 }
 
 async function saveMessageEdit(
@@ -225,8 +268,39 @@ async function saveMessageEdit(
   setEditingId(null);
 
   if (trimmed !== item.text) {
-    await updateMessage(sessionId, item.text, trimmed, role);
+    await updateMessage(sessionId, item.text, trimmed, role, item.id);
   }
+}
+
+function DeleteConfirmModal({
+  confirm,
+  language,
+  onCancel,
+  onConfirm,
+}: {
+  confirm: DeleteConfirmState | null;
+  language: Language;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  if (!confirm) return null;
+
+  return (
+    <View style={styles.modalOverlay}>
+      <View style={styles.modalBox}>
+        <Text style={styles.modalTitle}>{confirm.title}</Text>
+        <Text style={styles.modalText}>{confirm.message}</Text>
+        <View style={styles.modalButtons}>
+          <TouchableOpacity style={styles.modalCancel} onPress={onCancel}>
+            <Text style={styles.modalCancelText}>{t(language, 'cancel')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.modalDelete} onPress={onConfirm}>
+            <Text style={styles.modalDeleteText}>{t(language, 'delete')}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
 }
 
 function BubbleInlineActions({
@@ -341,14 +415,35 @@ function getCharacterAvatarSource(characterName?: string) {
 
 type TaggedBlock = {
   tag: string;
+  rawTag: string;
   name: string;
   content: string;
 };
 
-function parseTaggedResponse(text: string, tagNames: Record<string, string>): Array<{ tag: string; name: string; content: string }> {
+function mergeTaggedBlocks(blocks: TaggedBlock[]): TaggedBlock[] {
+  return blocks.reduce((acc: TaggedBlock[], block) => {
+    const last = acc[acc.length - 1];
+    if (last && last.tag === block.tag && last.rawTag === block.rawTag) {
+      last.content = `${last.content}\n${cleanContent(block.content)}`;
+      return acc;
+    }
+    acc.push({ ...block, content: cleanContent(block.content) });
+    return acc;
+  }, []);
+}
+
+function rebuildTaggedText(blocks: TaggedBlock[]): string {
+  return blocks
+    .map((block) => `[${block.rawTag}]\n${block.content.trim()}`)
+    .join('\n\n')
+    .trim();
+}
+
+function parseTaggedResponse(text: string, tagNames: Record<string, string>): TaggedBlock[] {
   const lines = text.split('\n');
-  const blocks: Array<{ tag: string; name: string; content: string }> = [];
+  const blocks: TaggedBlock[] = [];
   let currentTag = 'NARRATOR';
+  let currentRawTag = 'NARRATOR';
   let currentLines: string[] = [];
 
   const pushBlock = () => {
@@ -357,8 +452,8 @@ function parseTaggedResponse(text: string, tagNames: Record<string, string>): Ar
       let resolvedTag = currentTag;
       let resolvedName = tagNames[currentTag] || currentTag;
 
-      if (currentTag.startsWith('CHARACTER:')) {
-        resolvedName = currentTag.slice(10).trim();
+      if (currentRawTag.startsWith('CHARACTER:')) {
+        resolvedName = currentRawTag.slice(10).trim();
         const idTag = resolvedName.toUpperCase().replace(/\s+/g, '_');
         if (TAG_AVATARS[idTag]) {
           resolvedTag = idTag;
@@ -370,8 +465,12 @@ function parseTaggedResponse(text: string, tagNames: Record<string, string>): Ar
         }
       }
 
-      const name = resolvedName;
-      blocks.push({ tag: resolvedTag, name, content });
+      blocks.push({
+        tag: resolvedTag,
+        rawTag: currentRawTag,
+        name: resolvedName,
+        content,
+      });
     }
   };
 
@@ -382,7 +481,8 @@ function parseTaggedResponse(text: string, tagNames: Record<string, string>): Ar
     const tagMatch = line.match(/^\[([^\]]+)\]\s*(.*)/);
     if (tagMatch) {
       pushBlock();
-      currentTag = tagMatch[1].trim();
+      currentRawTag = tagMatch[1].trim();
+      currentTag = currentRawTag;
       currentLines = tagMatch[2] ? [tagMatch[2]] : [];
     } else {
       currentLines.push(line);
@@ -496,6 +596,7 @@ function AIMessageBubble({
   setEditText,
   setEditingId,
   setMessages,
+  onRequestDelete,
   language,
 }: MessageEditProps & { language: Language }) {
   if (isErrorMessage(item.text)) {
@@ -529,23 +630,24 @@ function AIMessageBubble({
   }
 
   const taggedBlocks = parseTaggedResponse(item.text, getTagNames(language));
-  const mergedBlocks = taggedBlocks.reduce((acc: typeof taggedBlocks, block) => {
-    const last = acc[acc.length - 1];
-    if (last && last.tag === block.tag) {
-      last.content = last.content + '\n' + cleanContent(block.content);
-      return acc;
-    }
-    acc.push({ ...block, content: cleanContent(block.content) });
-    return acc;
-  }, []);
+  const mergedBlocks = mergeTaggedBlocks(taggedBlocks);
 
   const startEdit = () => {
     setEditText(item.text);
     setEditingId(item.id);
   };
 
-  const handleDelete = () =>
-    deleteMessageItem(sessionId, item, 'assistant', setMessages);
+  const handleDeleteBlock = (blockIndex: number) => {
+    const block = mergedBlocks[blockIndex];
+    const isLastBlock = mergedBlocks.length === 1;
+    onRequestDelete({
+      title: t(language, 'deleteMessageTitle'),
+      message: isLastBlock
+        ? t(language, 'deleteAiMessageConfirm')
+        : t(language, 'deleteAiBlockConfirm', block?.name || ''),
+      onConfirm: () => deleteAiBlockItem(sessionId, item, blockIndex, language, setMessages),
+    });
+  };
 
   return (
     <>
@@ -558,7 +660,10 @@ function AIMessageBubble({
             <View style={styles.aiBlockBody}>
               <Text style={styles.aiBlockName}>{block.name}</Text>
               <View style={styles.aiBubble}>
-                <BubbleInlineActions onEdit={startEdit} onDelete={handleDelete} />
+                <BubbleInlineActions
+                  onEdit={startEdit}
+                  onDelete={() => handleDeleteBlock(index)}
+                />
                 <View style={styles.aiMessageRoot}>
                   {parseAIMessage(cleanContent(block.content))}
                 </View>
@@ -579,7 +684,9 @@ function MessageBubble({
   setEditText,
   setEditingId,
   setMessages,
+  onRequestDelete,
 }: MessageBubbleProps) {
+  const { language } = useAppContext();
   const bubbleColor = USER_BUBBLE_COLOR;
 
   const startEdit = () => {
@@ -588,7 +695,11 @@ function MessageBubble({
   };
 
   const handleDelete = () =>
-    deleteMessageItem(sessionId, item, 'user', setMessages);
+    onRequestDelete({
+      title: t(language, 'deleteMessageTitle'),
+      message: t(language, 'deleteUserMessageConfirm'),
+      onConfirm: () => deleteMessageItem(sessionId, item, 'user', setMessages),
+    });
 
   if (isEmptyUserMessage(item)) {
     return null;
@@ -668,6 +779,68 @@ export const ChatScreen = ({ navigation }: any) => {
   const isWeb = Platform.OS === 'web';
   const flatListRef = useRef<FlatList<Message>>(null);
   const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const streamTargetRef = useRef('');
+  const streamDisplayLenRef = useRef(0);
+  const streamTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const pushStreamingMessage = useCallback((rawText: string) => {
+    const displayText = cleanAiDisplayText(rawText);
+    setMessages((prev) => {
+      const withoutStreaming = prev.filter((m) => m.id !== 'streaming');
+      return [
+        ...withoutStreaming,
+        {
+          id: 'streaming',
+          role: 'ai' as const,
+          text: displayText,
+          characterName: NARRATOR_NAME,
+        },
+      ];
+    });
+  }, [setMessages]);
+
+  const stopStreamReveal = useCallback(() => {
+    if (streamTimerRef.current) {
+      clearInterval(streamTimerRef.current);
+      streamTimerRef.current = null;
+    }
+  }, []);
+
+  const resetStreamReveal = useCallback(() => {
+    stopStreamReveal();
+    streamTargetRef.current = '';
+    streamDisplayLenRef.current = 0;
+  }, [stopStreamReveal]);
+
+  const flushStreamReveal = useCallback(() => {
+    stopStreamReveal();
+    const target = streamTargetRef.current;
+    streamDisplayLenRef.current = target.length;
+    if (target) {
+      pushStreamingMessage(target);
+    }
+  }, [pushStreamingMessage, stopStreamReveal]);
+
+  const ensureStreamReveal = useCallback(() => {
+    if (streamTimerRef.current) return;
+    streamTimerRef.current = setInterval(() => {
+      const target = streamTargetRef.current;
+      const displayedLen = streamDisplayLenRef.current;
+      if (displayedLen >= target.length) return;
+
+      const step = nextStreamRevealStep(target.length - displayedLen);
+      const nextLen = Math.min(target.length, displayedLen + step);
+      streamDisplayLenRef.current = nextLen;
+      pushStreamingMessage(target.slice(0, nextLen));
+    }, STREAM_TICK_MS);
+  }, [pushStreamingMessage]);
+
+  const setStreamTarget = useCallback((text: string) => {
+    streamTargetRef.current = text;
+    ensureStreamReveal();
+  }, [ensureStreamReveal]);
+
+  useEffect(() => () => stopStreamReveal(), [stopStreamReveal]);
 
   const [inputText, setInputText] = useState('');
   const [inputHeight, setInputHeight] = useState(MIN_INPUT_HEIGHT);
@@ -676,6 +849,17 @@ export const ChatScreen = ({ navigation }: any) => {
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
+  const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState | null>(null);
+
+  const onRequestDelete = useCallback((opts: DeleteConfirmState) => {
+    setDeleteConfirm(opts);
+  }, []);
+
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirm) return;
+    await deleteConfirm.onConfirm();
+    setDeleteConfirm(null);
+  };
 
   const canSend = useMemo(() => !isLoading, [isLoading]);
 
@@ -805,6 +989,7 @@ export const ChatScreen = ({ navigation }: any) => {
     setInputText('');
     setInputHeight(MIN_INPUT_HEIGHT);
     setIsLoading(true);
+    resetStreamReveal();
 
     try {
       const aiResponse = await sendAiMessage(
@@ -815,23 +1000,10 @@ export const ChatScreen = ({ navigation }: any) => {
         characterProfile,
         '',
         {
-          onChunk: (partialText: string) => {
-            const displayText = cleanAiDisplayText(partialText);
-            setMessages((prev) => {
-              const withoutStreaming = prev.filter((m) => m.id !== 'streaming');
-              return [
-                ...withoutStreaming,
-                {
-                  id: 'streaming',
-                  role: 'ai' as const,
-                  text: displayText,
-                  characterName: NARRATOR_NAME,
-                },
-              ];
-            });
-          },
+          onChunk: setStreamTarget,
         },
       );
+      flushStreamReveal();
       applyLocationFromAi(aiResponse.location);
       const displayText = cleanAiDisplayText(aiResponse.text);
       if (aiResponse.narratorInjection) {
@@ -856,6 +1028,7 @@ export const ChatScreen = ({ navigation }: any) => {
         createMessage('ai', t(language, 'errorMessage')),
       ]);
     } finally {
+      stopStreamReveal();
       setIsLoading(false);
     }
   };
@@ -916,6 +1089,7 @@ export const ChatScreen = ({ navigation }: any) => {
                     setEditText={setEditText}
                     setEditingId={setEditingId}
                     setMessages={setMessages}
+                    onRequestDelete={onRequestDelete}
                     language={language}
                   />
                 ) : (
@@ -927,6 +1101,7 @@ export const ChatScreen = ({ navigation }: any) => {
                     setEditText={setEditText}
                     setEditingId={setEditingId}
                     setMessages={setMessages}
+                    onRequestDelete={onRequestDelete}
                   />
                 );
               }}
@@ -989,6 +1164,13 @@ export const ChatScreen = ({ navigation }: any) => {
           </View>
         </KeyboardAvoidingView>
       </ImageBackground>
+
+      <DeleteConfirmModal
+        confirm={deleteConfirm}
+        language={language}
+        onCancel={() => setDeleteConfirm(null)}
+        onConfirm={handleConfirmDelete}
+      />
     </SafeAreaView>
   );
 };
@@ -1439,5 +1621,71 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: 'rgba(201, 168, 76, 0.7)',
     marginHorizontal: 2,
+  },
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 200,
+  },
+  modalBox: {
+    backgroundColor: 'rgba(15, 10, 5, 0.98)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 220, 180, 0.2)',
+    borderRadius: 16,
+    padding: 28,
+    width: '85%',
+    maxWidth: 380,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#F5E6C8',
+    fontFamily: Platform.OS === 'web' ? 'Cinzel, serif' : undefined,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  modalText: {
+    fontSize: 14,
+    color: 'rgba(245, 220, 180, 0.7)',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    backgroundColor: 'transparent',
+  },
+  modalCancel: {
+    flex: 1,
+    height: 44,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 220, 180, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCancelText: {
+    color: 'rgba(245, 220, 180, 0.6)',
+    fontSize: 15,
+  },
+  modalDelete: {
+    flex: 1,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: 'rgba(150, 20, 20, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalDeleteText: {
+    color: '#F5E6C8',
+    fontSize: 15,
+    fontWeight: '600',
   },
 });
