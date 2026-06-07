@@ -40,7 +40,7 @@ _CHARACTER_ID_MAP = {
 }
 logger = logging.getLogger(__name__)
 
-MAX_HISTORY_MESSAGES = 30
+MAX_HISTORY_MESSAGES = 14
 
 _DEFAULT_GAME_STATS = {
     "treasury": 450,

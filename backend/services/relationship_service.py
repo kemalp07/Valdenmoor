@@ -67,21 +67,19 @@ async def _call_vertex(prompt: str, max_tokens: int = 300) -> str:
 
 
 def get_relationships(session_id: str) -> dict:
-    """Tüm karakter ilişkilerini döner: {character_name: {score, last_interaction, relationship_type}}"""
     if not supabase:
         return {}
     try:
         resp = (
-            supabase.table("character_relationships")
-            .select("character_name,score,last_interaction,relationship_type")
+            supabase.table("character_relations")
+            .select("character_id,loyalty")
             .eq("session_id", session_id)
             .execute()
         )
         return {
-            row["character_name"]: {
-                "score": row["score"],
-                "last_interaction": row.get("last_interaction", ""),
-                "relationship_type": row.get("relationship_type", "neutral"),
+            row["character_id"]: {
+                "score": row.get("loyalty", 50),
+                "relationship_type": "neutral",
             }
             for row in (resp.data or [])
         }
@@ -110,35 +108,30 @@ def update_relationship_type(session_id: str, character_name: str, new_type: str
 
 
 def update_relationship(session_id: str, character_name: str, delta: int, reason: str):
-    """Tek bir karakter için ilişki skorunu güncelle."""
     if not supabase:
         return
     try:
         resp = (
-            supabase.table("character_relationships")
-            .select("score")
+            supabase.table("character_relations")
+            .select("loyalty")
             .eq("session_id", session_id)
-            .eq("character_name", character_name)
+            .eq("character_id", character_name)
             .execute()
         )
-        current_score = (resp.data or [{}])[0].get("score", 0) if resp.data else 0
-        new_score = max(-100, min(100, current_score + delta))
+        current = (resp.data or [{}])[0].get("loyalty", 50) if resp.data else 50
+        new_loyalty = max(0, min(100, current + delta))
 
-        supabase.table("character_relationships").upsert(
+        supabase.table("character_relations").upsert(
             {
                 "session_id": session_id,
-                "character_name": character_name,
-                "score": new_score,
-                "last_interaction": reason[:200],
+                "character_id": character_name,
+                "loyalty": new_loyalty,
                 "updated_at": datetime.utcnow().isoformat(),
             },
-            on_conflict="session_id,character_name",
+            on_conflict="session_id,character_id",
         ).execute()
 
-        logger.info(
-            f"[{session_id}] {character_name}: {current_score} → {new_score} "
-            f"({'+' if delta > 0 else ''}{delta}: {reason})"
-        )
+        logger.info(f"[{session_id}] {character_name}: {current} → {new_loyalty} ({delta:+}: {reason})")
     except Exception as e:
         logger.error(f"update_relationship error: {e}")
 
@@ -161,27 +154,32 @@ async def analyze_relationship_changes(
         f"{m['role'].upper()}: {m['content'][:400]}" for m in recent
     )
 
-    prompt = f"""Sen Hogwarts'ın gizli ilişki kayıt büyücüsüsün.
-Oyuncu adı: {player_name}
+    prompt = f"""Sen Valdenmoor krallığının gizli kayıt tutucususun.
+Oyuncu: Kral/Kraliçe {player_name}
 
-Aşağıdaki sohbeti analiz et. Oyuncunun karakterlerle olan etkileşimlerini değerlendir.
-- KRİTİK: Sadece bu konuşmada gerçekten konuşan veya etkileşime giren karakterleri değerlendir. Sohbette adı geçmeyen veya aktif olmayan karakterlere kesinlikle puan değişimi uygulama.
-Her değişim -10 ile +10 arasında olsun. Küçük etkileşimler için -3 ile +3 tercih et. Sadece çok belirgin olaylar için ±10 kullan.
+Aşağıdaki konuşmayı analiz et. Oyuncunun NPC'lerle etkileşimini değerlendir.
+Sadece bu konuşmada aktif olan karakterleri değerlendir. Adı geçmeyen karakterlere puan uygulama.
+
+Her değişim -15 ile +15 arasında olsun:
+- Oyuncu bir karaktere saygılı/adil/cömert davrandıysa → pozitif
+- Oyuncu bir karakteri tehdit etti/küçümsedi/görmezden geldiyse → negatif  
+- Oyuncu karakterin çıkarına hizmet eden bir karar aldıysa → pozitif
+- Oyuncu karakterin çıkarına zarar veren bir karar aldıysa → negatif
+- Küçük etkileşimlerde -3/+3, büyük olaylarda ±15
 
 KONUŞMA:
 {conv_text}
 
-Değerlendirme kriterleri:
-- Oyuncu bir karaktere saygılı/yardımcı/nazik davrandıysa → pozitif
-- Oyuncu bir karaktere saygısız/düşmanca/kaba davrandıysa → negatif
-- Oyuncu bir karakteri etkilediyse (başarı, yetenek gösterisi) → pozitif
-- Karakter zaten oyuncudan nefret ediyorsa (Draco, Snape gibi), küçük gelişmelerde az değişim
-- Hiçbir önemli etkileşim yoksa boş liste döndür
+ÖNEMLİ: "character" alanında mutlaka snake_case ID kullan:
+lord_aldric_vane, lord_harwin_sorn, lord_cerin_vane, mira,
+lord_commander_draven, commander_sera_ashford, general_caelan_voss,
+priest_edran, tomas, lena, duke_malachar, general_harkon,
+king_edwyn, princess_elowen, prince_aldric_selmara, sultan_rashid, envoy_zara
 
 SADECE JSON döndür:
 [
-  {{"character": "Hermione Granger", "delta": 8, "reason": "Dönüşüm dersinde etkileyici performans"}},
-  {{"character": "Severus Snape", "delta": -5, "reason": "Sınıfta dikkat dağıttı"}}
+  {{"character": "lord_aldric_vane", "delta": -8, "reason": "Vezirin tavsiyesini reddetti"}},
+  {{"character": "lord_harwin_sorn", "delta": 5, "reason": "Hazine bakanına güven gösterdi"}}
 ]
 
 Değişim yoksa: []"""
@@ -267,8 +265,7 @@ veya
 
         if triggered and triggered in [name for name, _ in candidates]:
             female_indicators = [
-                "Hermione", "McGonagall", "Ginny", "Luna", "Lavender",
-                "Parvati", "Pansy", "Bellatrix", "Fleur", "Cho",
+                "Elowen", "Mira", "Zara", "Sera", "Lena",
             ]
             is_female = any(ind in triggered for ind in female_indicators)
 
@@ -288,7 +285,7 @@ veya
 
 
 def build_relationship_context(session_id: str) -> str:
-    """Mevcut ilişki skorlarını ve tiplerini system prompt için formatla."""
+    """Mevcut ilişki skorlarını system prompt için formatla — davranış kurallarıyla birlikte."""
     relationships = get_relationships(session_id)
     if not relationships:
         return ""
@@ -296,33 +293,37 @@ def build_relationship_context(session_id: str) -> str:
     lines = []
     for char, data in relationships.items():
         score = data["score"] if isinstance(data, dict) else data
-        rel_type = data.get("relationship_type", "neutral") if isinstance(data, dict) else "neutral"
 
-        if rel_type == "romance":
-            desc = f"romantik ilişki var — sana aşık, yakın temas ister, kıskançlık gösterebilir (skor: {score})"
-        elif abs(score) <= 10:
-            continue
-        elif score >= 70:
-            desc = f"çok yakın arkadaş, her şeyi paylaşır (skor: {score})"
+        if score == 50:
+            continue  # başlangıç değeri, henüz etkileşim yok
+
+        if score >= 70:
+            behavior = "koşulsuz sadık. Her emri yerine getirir, tehlikeye atlar, sırrını korur."
         elif score >= 40:
-            desc = f"arkadaş, yardımsever (skor: {score})"
+            behavior = "güveniyor. Yardımcı olur ama kendi çıkarını da gözetir."
         elif score >= 15:
-            desc = f"olumlu tanıdık (skor: {score})"
-        elif score <= -70:
-            desc = f"düşman, açıkça düşmanca davranır (skor: {score})"
-        elif score <= -40:
-            desc = f"sevmez, mesafeli ve soğuk (skor: {score})"
+            behavior = "tarafsız ama olumlu. Makul istekleri kabul eder."
+        elif score >= -15:
+            behavior = "nötr. Ne yardım eder ne engel olur, durumu kollar."
+        elif score >= -40:
+            behavior = "soğuk ve mesafeli. Emirlere yavaş uyar, bilgi saklar."
+        elif score >= -70:
+            behavior = "düşmanca. Açıkça direnir, fırsat bulunca baltalar."
         else:
-            desc = f"biraz olumsuz (skor: {score})"
+            behavior = "açık düşman. İhanet planlar, rakiplerle ittifak arar."
 
-        lines.append(f"- {char}: {desc}")
+        lines.append(f"- {char} (sadakat: {score}): {behavior}")
 
     if not lines:
         return ""
 
     return (
-        "## OYUNCUYLA İLİŞKİLER:\n"
+        "## KARAKTER SADAKAT DURUMU — ZORUNLU UYGULA\n"
         + "\n".join(lines)
-        + "\n\nBu ilişki dinamiklerini karakterlerin konuşma ve davranışlarına yansıt. "
-        "Romance tipindeki karakterler oyuncuya özel ilgi gösterir, flört eder, kıskanabilir."
+        + "\n\n"
+        "**KRİTİK:** Bu sadakat skorları karakterlerin nasıl davranacağını belirler. "
+        "Düşük sadakatli karakterler oyuncuya eyvallah demez, direnir, geciktirir, "
+        "bilgi saklar veya açıkça reddeder. Yüksek sadakatli karakterler bile kendi "
+        "ajandaları doğrultusunda hareket eder. Sadakat skoru ne olursa olsun hiçbir "
+        "karakter aptal değildir — kendi çıkarını düşünür."
     )

@@ -16,7 +16,7 @@ load_dotenv(PROJECT_ROOT / ".env", override=True)
 
 logger = logging.getLogger(__name__)
 
-SUMMARY_TRIGGER_TURNS = 6
+SUMMARY_TRIGGER_TURNS = 4
 
 
 def _normalize_memory_owner_id(session_id: str) -> str:
@@ -80,10 +80,10 @@ def _format_conversation(conversation: list[dict]) -> str:
 def _build_summary_prompt(conversation: list[dict]) -> str:
     conversation_text = _format_conversation(conversation)
     return (
-        "Bu Harry Potter roleplay konuşmasından kısa bir episodik hafıza kaydı çıkar.\n"
+        "Valdenmoor krallık yönetim RPG'sinden kısa bir episodik hafıza kaydı çıkar.\n"
         "Türkçe yaz. Maksimum 3 cümle.\n"
-        "Şunları içer: kim ne yaptı, hangi önemli şey oldu, çözümlenmemiş ne var.\n"
-        "Spesifik ol — karakter isimlerini ve olayları net yaz.\n\n"
+        "Şunları içer: kral/kraliçe ne kararlar aldı, hangi önemli olay yaşandı, çözümlenmemiş ne var.\n"
+        "Spesifik ol — karakter isimlerini, stat değişimlerini ve kararları net yaz.\n\n"
         f"{conversation_text}"
     )
 
@@ -91,24 +91,18 @@ def _build_summary_prompt(conversation: list[dict]) -> str:
 def _build_rolling_summary_prompt(conversation: list[dict]) -> str:
     conversation_text = _format_conversation(conversation)
     return (
-        "Sen bir Harry Potter roleplay oyununun hafıza sistemisin. "
+        "Sen Valdenmoor krallık yönetim RPG'sinin hafıza sistemisin.\n"
         "Aşağıdaki konuşmayı analiz et ve yapılandırılmış bir özet çıkar.\n\n"
-        "ZORUNLU FORMAT — her başlık altında Türkçe yaz:\n\n"
-        "## YAŞANAN OLAYLAR:\n"
-        "- Kemal'in bu bölümde yaptığı önemli eylemler ve sonuçları\n"
-        "- Gerçekleşen dramatik veya önemli sahneler\n\n"
-        "## DEVAM EDEN OLAYLAR (ÇÖZÜMLENMEMIŞ):\n"
-        "- Henüz sonuçlanmamış çatışmalar, görevler, sorular\n"
-        "- Yarım kalan sahneler veya verilen sözler\n\n"
-        "## KARAKTER İLİŞKİLERİ:\n"
-        "- Her önemli karakterin Kemal'e karşı tutumu (olumlu/olumsuz/nötr + sebep)\n"
-        "- Bu bölümde değişen ilişkiler\n\n"
-        "## ÖNEMLI DETAYLAR:\n"
-        "- Kemal'in edindiği eşyalar, öğrendiği büyüler, gittiği yerler\n"
-        "- Öğretmenlerden alınan tepkiler, puan değişimleri\n\n"
-        "## DUYGUSAL TON:\n"
-        "- Bölümün genel havası ve Kemal'in içinde bulunduğu durum\n\n"
-        "Maksimum 500 kelime. İsim ve detaylarda spesifik ol.\n\n"
+        "ZORUNLU FORMAT — Türkçe, kısa ve öz:\n\n"
+        "## ALINAN KARARLAR:\n"
+        "- Kral/Kraliçenin bu bölümde aldığı önemli kararlar ve sonuçları\n\n"
+        "## DEVAM EDEN SORUNLAR:\n"
+        "- Henüz çözülmemiş krizler, tehditler, verilen sözler\n\n"
+        "## STAT DEĞİŞİMLERİ:\n"
+        "- Hazine, ordu morali, halk desteği, prestij, Dravkor tehdidindeki önemli değişimler\n\n"
+        "## KARATERLERİN TUTUMU:\n"
+        "- Bu bölümde öne çıkan NPC'lerin kral/kraliçeye karşı tutumu\n\n"
+        "Maksimum 250 kelime. Spesifik ol.\n\n"
         f"{conversation_text}"
     )
 

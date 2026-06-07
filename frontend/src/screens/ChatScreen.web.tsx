@@ -101,9 +101,13 @@ const TAG_AVATARS: Record<string, any> = {
 };
 
 const JSON_BLOCK_REGEX = /```json[\s\S]*?```/g;
+const INLINE_STATS_REGEX = /\{[\s\S]*?"stats_delta"[\s\S]*?\}/g;
 
 function cleanAiDisplayText(text: string): string {
-  return text.replace(JSON_BLOCK_REGEX, '').trim();
+  return text
+    .replace(JSON_BLOCK_REGEX, '')
+    .replace(INLINE_STATS_REGEX, '')
+    .trim();
 }
 
 function parseStatsDelta(text: string): Record<string, number> | null {
