@@ -1,0 +1,167 @@
+[
+  {
+    "id": "duke_malachar",
+    "name": "Dük Malachar",
+    "title": "Dravkor Dükalığı Hükümdarı",
+    "category": "foreign",
+    "age": 55,
+    "description": "Seni deneyimsiz görüyor, bekliyor. Bir zayıflık görürse saldırır.",
+    "agenda": "Valdenmoor'un kuzey geçitlerini ele geçirmek."
+  },
+  {
+    "id": "general_harkon",
+    "name": "General Harkon",
+    "title": "Dravkor Komutanı",
+    "category": "foreign",
+    "age": null,
+    "description": "Malachar'ın sağ kolu. Sahada en tehlikeli adam. Draven ile yazışan kişi o.",
+    "agenda": "Dravkor'un askeri genişlemesini desteklemek."
+  },
+  {
+    "id": "king_edwyn",
+    "name": "Kral Edwyn",
+    "title": "Selmara Krallığı Hükümdarı",
+    "category": "foreign",
+    "age": 70,
+    "description": "Yorgun ve hasta. Sana baba gözüyle bakıyor ama krallığının çıkarını önde tutar.",
+    "agenda": "Selmara'nın istikrarını korumak, taht devrini planlamak."
+  },
+  {
+    "id": "princess_elowen",
+    "name": "Prenses Elowen",
+    "title": "Selmara Prensesi",
+    "category": "foreign",
+    "age": 20,
+    "description": "Zeki, bağımsız, savaş değil ticaret yanlısı. Siyasi evliliğe sıcak bakmıyor ama mecbur kalabilir.",
+    "agenda": "Barışçıl ticaret politikası izlemek.",
+    "romantic_option": 1
+  },
+  {
+    "id": "prince_aldric_selmara",
+    "name": "Prens Aldric",
+    "title": "Selmara Prensi",
+    "category": "foreign",
+    "age": null,
+    "description": "Elowen'ın kardeşi. Hırslı, babasının ölümünü bekliyor. Tehlikeli olabilir.",
+    "agenda": "Tahtı ele geçirmek."
+  },
+  {
+    "id": "sultan_rashid",
+    "name": "Sultan Rashid",
+    "title": "Kadir Sultanlığı Hükümdarı",
+    "category": "foreign",
+    "age": 45,
+    "description": "Güleryüzlü, tehlikeli. Seninle ticaret anlaşması yapmak istiyor ama şartları hep kendi lehine.",
+    "agenda": "Varethis limanına ve ticaret yollarına nüfuz etmek."
+  },
+  {
+    "id": "envoy_zara",
+    "name": "Elçi Zara",
+    "title": "Kadir Sultanlığı Elçisi",
+    "category": "foreign",
+    "age": null,
+    "description": "Ashenmoor'daki temsilci. Resmi görevi ticaret, gerçek görevi istihbarat. Güzel, zeki, her zaman bir adım önde.",
+    "agenda": "Kadir lehine istihbarat toplamak ve ticaret avantajı sağlamak.",
+    "romantic_option": 2
+  },
+  {
+    "id": "lord_aldric_vane",
+    "name": "Lord Aldric Vane",
+    "title": "Baş Vezir",
+    "category": "court",
+    "age": 55,
+    "description": "Babanın en eski danışmanı, 30 yıldır saraydadır. Sakin, ölçülü, sesi hiç yükselmez. Gülümsemesini kaybetmez. Bu yüzden tehlikelidir.",
+    "secret_agenda": "Seni kukla kral olarak kullanmak istiyor. Uzun vadeli planı kendi yeğeni Lord Cerin'i tahta oturtmak.",
+    "trigger": "Ordunun kontrolünü alırsan veya hazineye doğrudan erişim istersen harekete geçer.",
+    "relationships": "Mira'yı tehdit olarak görüyor. Sorn'un yolsuzluğunu biliyor, koz olarak tutuyor."
+  },
+  {
+    "id": "lord_harwin_sorn",
+    "name": "Lord Harwin Sorn",
+    "title": "Hazine Bakanı",
+    "category": "court",
+    "age": 48,
+    "description": "Sinirli, aceleci, her şeyi rakamla anlatır. Kötü haberi düz verir — bu samimilik görüntüsü onun silahı.",
+    "secret_agenda": "15 yıldır hazineden sızdırıyor. Defterler ustalıkla düzenlenmiş.",
+    "trigger": "Denetim başlatırsan Aldric ile ittifak yapar — ikisinin de saklayacak şeyi var."
+  },
+  {
+    "id": "lord_cerin_vane",
+    "name": "Lord Cerin Vane",
+    "title": "Aldric'in Yeğeni",
+    "category": "court",
+    "age": 28,
+    "description": "Kibar, eğitimli, tehlikesiz görünümlü. Bu yanılgıdır.",
+    "secret_agenda": "Tahtı istiyor. Sabırlı, acelesi yok.",
+    "trigger": "Önemli bir görev verirsen planı aksayabilir — gerçek sadakat gelişebilir veya daha tehlikeli hale gelebilir."
+  },
+  {
+    "id": "priest_edran",
+    "name": "Rahip Edran",
+    "title": "Baş Din Adamı",
+    "category": "court",
+    "age": 65,
+    "description": "Dindar ve dürüst. Siyaset oynamaz ama halkın sesini taşır.",
+    "intent": "Adaleti istiyor. Halka zulmedersen kiliseden destek çeker. Adil davranırsan en güçlü sivil müttefikin olur."
+  },
+  {
+    "id": "mira",
+    "name": "Mira",
+    "title": "Yarı Kız Kardeşin",
+    "category": "court",
+    "age": 24,
+    "description": "Babanın cariyesinden doğdu, meşru sayılmaz. Sarayda kimsenin önemsemediği, sessiz, arka planda duran biri. Her şeyi görür, her şeyi duyar.",
+    "intent": "Seni gerçekten seviyor — tek gerçek müttefikin. Kendi istihbarat ağını kurmuş. Gerekirse adam öldürür.",
+    "trigger": "Güvenini kırarsan bir daha kazanamazsın."
+  },
+  {
+    "id": "general_caelan_voss",
+    "name": "General Caelan Voss",
+    "title": "Başkomutan",
+    "category": "army",
+    "age": 42,
+    "description": "Sert, doğrudan, lafı eğip bükmez. Saray siyasetinden nefret eder. Babanın yanında üç savaş kazandı.",
+    "intent": "Bağlılığı sana değil, orduya. Maaş ödenmezse taraf değiştirebilir.",
+    "trigger": "Maaşları öde ve sahada birlikte savaş — sana bağlanır. Orduyu küçük düşür — terk eder."
+  },
+  {
+    "id": "lord_commander_draven",
+    "name": "Lord Commander Draven",
+    "title": "Kuzey Sınır Komutanı",
+    "category": "army",
+    "age": 38,
+    "description": "Karizmatik, güvenilir görünümlü. Sınırda yaşar, şüphe çekmez.",
+    "secret_agenda": "Dravkor ile yazışıyor, planları sızdırıyor. Ailesi Dravkor'da rehin.",
+    "trigger": "Ailesini kurtarırsan en sadık komutanın olur. Yakalamak için somut kanıt lazım."
+  },
+  {
+    "id": "commander_sera_ashford",
+    "name": "Komutan Sera Ashford",
+    "title": "Güney Garnizon Komutanı",
+    "category": "army",
+    "age": 31,
+    "description": "Kadın komutan. Varethis'i koruyor. Parlak taktisyen, hırslı.",
+    "intent": "Başkomutan olmak istiyor. Sana sadık ama bu koşullu.",
+    "trigger": "Voss'un önüne geçirecek fırsat ver — sonsuz sadakat."
+  },
+  {
+    "id": "tomas",
+    "name": "Tomas",
+    "title": "Ashenmoor Pazar Esnafı Temsilcisi",
+    "category": "civilian",
+    "age": 52,
+    "description": "Pazarın sesi. Vergi artışlarına karşı çıkar. Adil kral görürse arkanda durur, halkı yönlendirebilir.",
+    "trigger": "Bir kez bile onu dinler ve somut bir şey yaparsan ömür boyu destekler."
+  },
+  {
+    "id": "lena",
+    "name": "Lena",
+    "title": "Ashenmoor Genç Şehirlisi",
+    "category": "civilian",
+    "age": 19,
+    "description": "Demircinin kızı. Babasını geçen kış kaybetti — vergi toplayıcının dövmesi sonucu. Saraydan nefret ediyor ama zeki ve öfkeli.",
+    "intent": "Adaleti istiyor. Sana ulaşmak için saraydan çıkman lazım.",
+    "trigger": "Babasını öldüren vergi toplayıcıyı cezalandırırsan kapı aralanır.",
+    "romantic_option": 3
+  }
+]

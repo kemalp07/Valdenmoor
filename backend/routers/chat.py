@@ -20,16 +20,13 @@ from services.house_points_service import (
     increment_message_count,
     check_sleep_trigger,
     get_message_count,
-    build_current_time_context,
     get_todays_schedule,
-    get_missed_classes_for_prompt,
-    build_missed_class_context,
     get_location,
     get_day_name,
     localize_subject,
 )
 from services.world_simulation import run_point_simulation, extract_time_from_response, extract_inventory_and_location
-from services.relationship_service import analyze_relationship_changes, build_relationship_context
+from services.relationship_service import analyze_relationship_changes
 from db.supabase_client import insert_message, supabase
 import traceback
 from pathlib import Path
@@ -99,37 +96,6 @@ def _get_character_relations(session_id: str) -> list[dict]:
     except Exception as e:
         logger.error(f"get_character_relations error: {e}")
         return []
-
-
-def _build_game_state_context(stats: dict, relations: list[dict]) -> str:
-    lines = [
-        "## OYUN DURUMU:",
-        f"- Hazine (treasury): {stats.get('treasury', 450)}",
-        f"- Ordu morali (army_morale): {stats.get('army_morale', 40)}",
-        f"- Halk desteği (public_support): {stats.get('public_support', 45)}",
-        f"- Prestij (prestige): {stats.get('prestige', 30)}",
-        f"- Dravkor tehdidi (dravkor_threat): {stats.get('dravkor_threat', 60)}",
-    ]
-
-    if relations:
-        lines.append("\n## KARAKTER İLİŞKİLERİ:")
-        for rel in relations:
-            lines.append(
-                f"- {rel.get('character_id', 'unknown')}: sadakat {rel.get('loyalty', 50)}"
-            )
-    else:
-        lines.append("\n## KARAKTER İLİŞKİLERİ:\n- Henüz kayıtlı karakter ilişkisi yok.")
-
-    return "\n".join(lines)
-
-
-def _inject_game_state_into_prompt(messages_for_model: list, game_context: str) -> None:
-    if not game_context or not messages_for_model:
-        return
-    if messages_for_model[0].get("role") == "system":
-        messages_for_model[0]["content"] = (
-            messages_for_model[0].get("content", "") + "\n\n" + game_context
-        )
 
 
 def _normalize_history_role(role: str) -> Optional[str]:
@@ -264,10 +230,7 @@ async def chat_endpoint(request: Request):
     if sleep_triggered:
         advance_hour(session_id, hours=14)
 
-    missed_context = build_missed_class_context(get_missed_classes_for_prompt(session_id), language=language)
-
     game_state = get_game_state(session_id)
-    time_context = build_current_time_context(session_id, language=language)
 
     narrator_injection = None
     if game_state.get("current_hour") == 8 or sleep_triggered or day_advanced:
@@ -287,26 +250,19 @@ async def chat_endpoint(request: Request):
     conversation_for_memory = _merge_history_and_current(history, message)
     memories = await get_memories(session_id)
 
-    relationship_context = build_relationship_context(session_id)
-
-    messages_for_model = await build_prompt(
-        user_name=user_name,
-        character_id=character_id,
-        location_id=location_id,
-        messages=conversation_messages,
-        memories=memories,
-        character_profile=character_profile,
-        relationship_context=relationship_context,
-        time_context=time_context,
-        missed_context=missed_context,
-        language=language,
-    )
-
     _ensure_game_session(session_id, user_name)
     game_stats = _ensure_game_stats(session_id)
     character_relations = _get_character_relations(session_id)
-    game_context = _build_game_state_context(game_stats, character_relations)
-    _inject_game_state_into_prompt(messages_for_model, game_context)
+
+    messages_for_model = await build_prompt(
+        user_name=user_name,
+        messages=conversation_messages,
+        memories=memories,
+        game_stats=game_stats,
+        character_relations=character_relations,
+        character_profile=character_profile,
+        language=language,
+    )
 
     model = body.get("model") or os.getenv("VERTEX_AI_MODEL", "gemini-2.0-flash-001")
     memory_state = {
