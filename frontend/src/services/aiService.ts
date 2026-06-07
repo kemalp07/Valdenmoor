@@ -1,4 +1,5 @@
 // Assembles final prompt and calls the AI API
+import { API_BASE } from '../config/api';
 
 export type Message = { id: string; role: 'user' | 'ai'; text: string; characterName?: string };
 
@@ -21,8 +22,6 @@ type ChatApiResponse = {
   character_name?: string;
 };
 
-// Use the test endpoint in local dev when Vertex credentials may be missing.
-const API_BASE = 'https://hogwarts-2.onrender.com/api';
 const API_URL = `${API_BASE}/chat`;
 
 export async function deleteMessage(
@@ -83,10 +82,10 @@ export async function sendMessage(
       }));
 
     const payload = {
-      message: history[history.length - 1]?.content || '...',
+      message: messages.length === 0 ? '' : (history[history.length - 1]?.content || ''),
       user_name: userName,
-      character_id: 'hogwarts-narrator',
-      location_id: 'great-hall',
+      character_id: 'valdenmoor-narrator',
+      location_id: 'ashenmoor-palace',
       history,
       session_id: sessionId,
       character_profile: characterProfile,
@@ -181,7 +180,7 @@ export async function sendMessage(
     if (simulationParams) {
       const sp = simulationParams;
       try {
-        const simRes = await fetch('https://hogwarts-2.onrender.com/api/run-simulation', {
+        const simRes = await fetch(`${API_BASE}/run-simulation`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

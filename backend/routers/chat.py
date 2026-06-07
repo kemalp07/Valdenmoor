@@ -242,8 +242,9 @@ async def chat_endpoint(request: Request):
 
     # Vertex AI does not like empty user turns, so we supply a short opening instruction when needed.
     user_message_for_model = message if message.strip() else (
-        f"Kullanıcı henüz yazmadı. Anlatıcı olarak Büyük Salon açılışını kısa tasvir et; "
-        f"{user_name} adlı oyuncuyu hikâyeye davet et. Tek bir hocanın ilk şahısından sürekli konuşma."
+        f"Kullanıcı henüz yazmadı. Valdenmoor açılış sahnesini başlat: "
+        f"Vezir Aldric Vane {user_name} adlı hükümdara hazine raporu ve kuzey haberleriyle girsin. "
+        f"world.md'deki ilk sahne kurallarına uy."
     )
 
     conversation_messages = _merge_history_and_current(history, user_message_for_model)

@@ -6,12 +6,12 @@ import {
   Pressable,
   SafeAreaView,
   Platform,
-  ImageBackground,
-  Image,
   ScrollView,
   TouchableOpacity,
+  TextInput,
 } from 'react-native';
-import { useAppContext, Character, loadAllCharactersFromDB } from '../context/AppContext';
+import { useAppContext, Character, loadAllCharactersFromDB, saveCharacterToDB } from '../context/AppContext';
+import { API_BASE } from '../config/api';
 import { t } from '../i18n/translations';
 
 type OnboardingScreenProps = {
@@ -21,6 +21,7 @@ type OnboardingScreenProps = {
 export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation }) => {
   const { characters, setCharacters, setActiveCharacter, language, setLanguage } = useAppContext();
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [rulerName, setRulerName] = useState('');
 
   useEffect(() => {
     if (Platform.OS === 'web') {
@@ -48,8 +49,30 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation }
     navigation.navigate('Chat');
   };
 
-  const handleNewCharacter = () => {
-    navigation.navigate('CharacterCreation');
+  const handleStartGame = async () => {
+    const name = rulerName.trim();
+    if (!name) return;
+
+    const newCharacter: Character = {
+      id: crypto.randomUUID(),
+      name,
+      gender: '',
+      traits: [],
+      origin: 'Valdenmoor',
+      height: '',
+      hairColor: '',
+      fear: '',
+      hobby: '',
+      secretTrait: '',
+      house: 'valdenmoor',
+      sessionId: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+    };
+
+    setCharacters([...characters, newCharacter]);
+    setActiveCharacter(newCharacter);
+    await saveCharacterToDB(newCharacter, newCharacter.sessionId);
+    navigation.navigate('Chat');
   };
 
   const handleDeleteCharacter = (character: any) => {
@@ -59,7 +82,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation }
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     try {
-      await fetch(`https://hogwarts-2.onrender.com/api/messages?session_id=${encodeURIComponent(deleteTarget.sessionId)}`, {
+      await fetch(`${API_BASE}/messages?session_id=${encodeURIComponent(deleteTarget.sessionId)}`, {
         method: 'DELETE',
       });
       const updated = characters.filter((c: any) => c.id !== deleteTarget.id);
@@ -77,16 +100,9 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation }
 
   return (
     <SafeAreaView style={styles.container}>
-      <ImageBackground 
-        source={require('../../assets/hogwarts_clean.png')} 
-        style={styles.backgroundImage}
-        imageStyle={{ opacity: 0.4 }}
-      >
+      <View style={styles.backgroundImage}>
         <View style={styles.content}>
-        <Image 
-          source={require('../../assets/hogwarts_crest.png')} 
-          style={styles.crestImage}
-        />
+        <Text style={styles.crestEmoji}>👑</Text>
 
         <View style={styles.languageToggle}>
           <Pressable
@@ -104,18 +120,28 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation }
         </View>
 
         <Text style={styles.title}>{t(language, 'welcome')}</Text>
+        <Text style={styles.subtitle}>{t(language, 'noCharacter')}</Text>
+
+        <TextInput
+          value={rulerName}
+          onChangeText={setRulerName}
+          placeholder={t(language, 'namePlaceholder')}
+          placeholderTextColor="rgba(245, 220, 180, 0.4)"
+          style={styles.nameInput}
+          maxLength={30}
+        />
+
+        <Pressable
+          style={[styles.emptyButton, !rulerName.trim() && styles.emptyButtonDisabled]}
+          onPress={handleStartGame}
+          disabled={!rulerName.trim()}
+        >
+          <Text style={styles.emptyButtonText}>{t(language, 'newCharacter')}</Text>
+        </Pressable>
 
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
           {characters.length === 0 ? (
-            <View style={styles.centerContent}>
-              <Text style={styles.subtitle}>{t(language, 'noCharacter')}</Text>
-              <Pressable
-                style={styles.emptyButton}
-                onPress={handleNewCharacter}
-              >
-                <Text style={styles.emptyButtonText}>{t(language, 'newCharacter')}</Text>
-              </Pressable>
-            </View>
+            <View style={styles.centerContent} />
           ) : (
             <View style={styles.characterList}>
               {characters.map((character) => (
@@ -141,18 +167,13 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation }
                 </View>
               ))}
               {characters.length < 3 && (
-                <Pressable
-                  style={styles.newCharacterButton}
-                  onPress={handleNewCharacter}
-                >
-                  <Text style={styles.newCharacterButtonText}>{t(language, 'addCharacter')}</Text>
-                </Pressable>
+                <Text style={styles.resumeHint}>{t(language, 'addCharacter')}</Text>
               )}
             </View>
           )}
         </ScrollView>
       </View>
-      </ImageBackground>
+      </View>
       {deleteTarget && (
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>
@@ -191,10 +212,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 24,
   },
-  crestImage: {
-    width: 350,
-    height: 350,
-    marginBottom: 175,
+  crestEmoji: {
+    fontSize: 72,
+    marginBottom: 24,
+  },
+  nameInput: {
+    width: '100%',
+    maxWidth: 320,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 220, 180, 0.35)',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    color: '#F5E6C8',
+    fontSize: 16,
+    marginBottom: 16,
+    backgroundColor: 'rgba(10, 6, 4, 0.6)',
+  },
+  emptyButtonDisabled: {
+    opacity: 0.45,
+  },
+  resumeHint: {
+    color: 'rgba(245, 220, 180, 0.45)',
+    fontSize: 13,
+    textAlign: 'center',
+    marginTop: 8,
+    fontStyle: 'italic',
   },
   languageToggle: {
     flexDirection: 'row',

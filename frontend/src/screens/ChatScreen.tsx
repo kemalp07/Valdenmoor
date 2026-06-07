@@ -22,8 +22,8 @@ import { getFirstMessage } from '../services/characterCard';
 import { sendMessage as sendAiMessage } from '../services/aiService';
 import { t } from '../i18n/translations';
 
-const NARRATOR_NAME = 'Hogwarts';
-const NARRATOR_SYMBOL = '⚡';
+const NARRATOR_NAME = 'Valdenmoor';
+const NARRATOR_SYMBOL = '👑';
 const HOUSES = ['Gryffindor', 'Hufflepuff', 'Ravenclaw', 'Slytherin'] as const;
 const MIN_INPUT_HEIGHT = 36;
 const MAX_INPUT_HEIGHT = 100;
@@ -233,15 +233,16 @@ function TypingBubble() {
 
 export const ChatScreen: React.FC = () => {
   const {
-    userName,
+    activeCharacter,
+    sessionId,
     messages,
     setMessages,
     isLoading,
     setIsLoading,
-    hogwartsHouse,
-    setHogwartsHouse,
     language,
   } = useAppContext();
+
+  const userName = activeCharacter?.name || '';
   const isWeb = Platform.OS === 'web';
   const flatListRef = useRef<FlatList<Message>>(null);
   const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -249,16 +250,30 @@ export const ChatScreen: React.FC = () => {
 
   const [inputText, setInputText] = useState('');
   const [inputHeight, setInputHeight] = useState(MIN_INPUT_HEIGHT);
-  const [showHouseSelection, setShowHouseSelection] = useState(false);
+  const openingRequested = useRef(false);
 
   const canSend = useMemo(() => inputText.trim().length > 0 && !isLoading, [inputText, isLoading]);
 
   useEffect(() => {
-    const firstMes = getFirstMessage(0, language);
-    const personalizedMessage = firstMes.replace(/\{\{user\}\}/g, userName || '');
-    setMessages([createMessage('ai', personalizedMessage)]);
-    setShowHouseSelection(true);
-  }, [setMessages, userName, language]);
+    if (!activeCharacter || openingRequested.current || messages.length > 0) return;
+    openingRequested.current = true;
+
+    const loadOpening = async () => {
+      setIsLoading(true);
+      try {
+        const aiResponse = await sendAiMessage([], userName, '', sessionId);
+        setMessages([
+          createMessage('ai', aiResponse.text, aiResponse.characterName || NARRATOR_NAME),
+        ]);
+      } catch {
+        setMessages([createMessage('ai', getFirstMessage(0, language), NARRATOR_NAME)]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadOpening();
+  }, [activeCharacter, userName, sessionId, language, messages.length, setMessages, setIsLoading]);
 
   // Auto-scroll on messages or loading change
   useEffect(() => {
@@ -283,7 +298,7 @@ export const ChatScreen: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const aiResponse = await sendAiMessage(nextMessages, userName, hogwartsHouse);
+      const aiResponse = await sendAiMessage(nextMessages, userName, '', sessionId);
       setMessages([
         ...nextMessages,
         createMessage('ai', aiResponse.text, aiResponse.characterName),
@@ -304,32 +319,6 @@ export const ChatScreen: React.FC = () => {
   ) => {
     const nextHeight = Math.min(MAX_INPUT_HEIGHT, Math.max(MIN_INPUT_HEIGHT, event.nativeEvent.contentSize.height));
     setInputHeight(nextHeight);
-  };
-
-  const handleHouseSelect = async (house: string) => {
-    setHogwartsHouse(house);
-    setShowHouseSelection(false);
-
-    const userMsg = createMessage('user', `${house}!`);
-    const nextMessages = [...messages, userMsg];
-    setMessages(nextMessages);
-    setIsLoading(true);
-
-    try {
-      const response = await sendAiMessage(nextMessages, userName, house);
-      setMessages([
-        ...nextMessages,
-        createMessage('ai', response.text, response.characterName),
-      ]);
-    } catch (error) {
-      console.error('AI Error:', error);
-      setMessages([
-        ...nextMessages,
-        createMessage('ai', t(language, 'errorMessage')),
-      ]);
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   const handleKeyPress = (event: NativeSyntheticEvent<TextInputKeyPressEventData>) => {
@@ -384,58 +373,37 @@ export const ChatScreen: React.FC = () => {
               }
             />
 
-            {showHouseSelection ? (
-              <View style={styles.houseSelectionArea}>
-                <View style={styles.houseButtonsRow}>
-                  {HOUSES.map((house) => (
-                    <TouchableOpacity
-                      key={house}
-                      onPress={() => handleHouseSelect(house)}
-                      disabled={isLoading}
-                      style={[
-                        styles.houseButton,
-                        { backgroundColor: houseColor(house) },
-                        isLoading && styles.houseButtonDisabled,
-                      ]}
-                    >
-                      <Text style={styles.houseButtonText}>{house}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+            <View style={styles.inputArea}>
+              <View style={[styles.inputBox, styles.inputBoxSpacing]}>
+                <TextInput
+                  value={inputText}
+                  onChangeText={setInputText}
+                  onSubmitEditing={isWeb ? undefined : handleSend}
+                  onKeyPress={isWeb ? handleKeyPress : undefined}
+                  onContentSizeChange={handleContentSizeChange}
+                  placeholder={t(language, 'inputPlaceholder')}
+                  placeholderTextColor="#8B7355"
+                  multiline={!isWeb}
+                  blurOnSubmit={false}
+                  returnKeyType="send"
+                  underlineColorAndroid="transparent"
+                  textAlignVertical="center"
+                  scrollEnabled={inputHeight >= MAX_INPUT_HEIGHT}
+                  style={[styles.textInput, { height: inputHeight }, WEB_INPUT_RESET]}
+                />
+                <Pressable
+                  onPress={handleSend}
+                  disabled={!canSend || isLoading}
+                  style={({ pressed }) => [
+                    styles.sendButton,
+                    canSend && !isLoading ? styles.sendButtonActive : styles.sendButtonDisabled,
+                    pressed && canSend && !isLoading ? styles.sendButtonPressed : null,
+                  ]}
+                >
+                  <Text style={[styles.sendIcon, canSend && !isLoading ? styles.sendIconActive : styles.sendIconDisabled]}>↑</Text>
+                </Pressable>
               </View>
-            ) : (
-              <View style={styles.inputArea}>
-                <View style={[styles.inputBox, styles.inputBoxSpacing]}>
-                  <TextInput
-                    value={inputText}
-                    onChangeText={setInputText}
-                    onSubmitEditing={isWeb ? undefined : handleSend}
-                    onKeyPress={isWeb ? handleKeyPress : undefined}
-                    onContentSizeChange={handleContentSizeChange}
-                    placeholder={t(language, 'inputPlaceholder')}
-                    placeholderTextColor="#8B7355"
-                    multiline={!isWeb}
-                    blurOnSubmit={false}
-                    returnKeyType="send"
-                    underlineColorAndroid="transparent"
-                    textAlignVertical="center"
-                    scrollEnabled={inputHeight >= MAX_INPUT_HEIGHT}
-                    style={[styles.textInput, { height: inputHeight }, WEB_INPUT_RESET]}
-                  />
-                  <Pressable
-                    onPress={handleSend}
-                    disabled={!canSend || isLoading}
-                    style={({ pressed }) => [
-                      styles.sendButton,
-                      canSend && !isLoading ? styles.sendButtonActive : styles.sendButtonDisabled,
-                      pressed && canSend && !isLoading ? styles.sendButtonPressed : null,
-                    ]}
-                  >
-                    <Text style={[styles.sendIcon, canSend && !isLoading ? styles.sendIconActive : styles.sendIconDisabled]}>↑</Text>
-                  </Pressable>
-                </View>
-              </View>
-            )}
+            </View>
           </View>
         </KeyboardAvoidingView>
       </View>

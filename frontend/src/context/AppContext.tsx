@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useMemo, ReactNode } from 'react';
+import { API_BASE } from '../config/api';
 import { Language } from '../i18n/translations';
 
 export type Message = {
@@ -78,7 +79,7 @@ export function mapDbCharacterToCharacter(row: Record<string, unknown>): Charact
 
 export async function saveCharacterToDB(character: Character, sessionId: string) {
   try {
-    await fetch('https://hogwarts-2.onrender.com/api/save-character', {
+    await fetch(`${API_BASE}/save-character`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ session_id: sessionId, character }),
@@ -92,7 +93,7 @@ export async function saveCharacterToDB(character: Character, sessionId: string)
 export async function loadCharactersFromDB(sessionId: string): Promise<Character[]> {
   try {
     const res = await fetch(
-      `https://hogwarts-2.onrender.com/api/load-characters?session_id=${encodeURIComponent(sessionId)}`,
+      `${API_BASE}/load-characters?session_id=${encodeURIComponent(sessionId)}`,
     );
     if (!res.ok) return [];
     const data = await res.json();

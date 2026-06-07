@@ -18,6 +18,7 @@ import {
   View,
 } from 'react-native';
 import { Asset } from 'expo-asset';
+import { API_BASE } from '../config/api';
 import { useAppContext, Message, saveCharacterToDB } from '../context/AppContext';
 import { getFirstMessage } from '../services/characterCard';
 import { deleteMessage, sendMessage as sendAiMessage, updateMessage } from '../services/aiService';
@@ -25,10 +26,10 @@ import { housePointsEqual, normalizeHousePoints } from '../utils/housePoints';
 import { getInputTips, getTagNames, t, Language } from '../i18n/translations';
 import { localizeScheduleData } from '../i18n/schedule';
 
-const NARRATOR_NAME = 'Hogwarts';
+const NARRATOR_NAME = 'Valdenmoor';
 const HOUSE_POINTS_POLL_MS = 3000;
 const HOUSE_POINTS_REFRESH_DELAYS = [1500, 3500, 6000, 10000, 18000] as const;
-const NARRATOR_SYMBOL = '⚡';
+const NARRATOR_SYMBOL = '👑';
 const HOUSES = ['Gryffindor', 'Hufflepuff', 'Ravenclaw', 'Slytherin'] as const;
 const MIN_INPUT_HEIGHT = 36;
 const MAX_INPUT_HEIGHT = 100;
@@ -1133,16 +1134,39 @@ const {
 
   const canSend = useMemo(() => !isLoading, [isLoading]);
 
+  const openingRequested = useRef(false);
+
   useEffect(() => {
-    if (!activeCharacter) return;
-    if (historyLoaded) return; // history yüklendiyse dokunma
-    if (activeCharacter.house) return; // house varsa skip
-    
-    const firstMes = getFirstMessage(0, language);
-    const personalizedMessage = firstMes.replace(/\{\{user\}\}/g, userName || '');
-    setMessages([createMessage('ai', personalizedMessage)]);
-    setShowHouseSelection(true);
-  }, [setMessages, userName, activeCharacter, historyLoaded, language]);
+    if (!activeCharacter || !historyLoaded || openingRequested.current) return;
+    if (messages.length > 0) return;
+
+    openingRequested.current = true;
+    setShowHouseSelection(false);
+
+    const loadOpening = async () => {
+      setIsLoading(true);
+      try {
+        const aiResponse = await sendAiMessage(
+          [],
+          userName,
+          '',
+          sessionId,
+          characterProfile,
+          playerAttraction,
+        );
+        setMessages([
+          createMessage('ai', aiResponse.text, aiResponse.characterName || NARRATOR_NAME),
+        ]);
+      } catch {
+        const intro = getFirstMessage(0, language);
+        setMessages([createMessage('ai', intro, NARRATOR_NAME)]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadOpening();
+  }, [activeCharacter, historyLoaded, messages.length, userName, sessionId, language]);
 
   useEffect(() => {
     setTipIndex(0);
@@ -1161,7 +1185,7 @@ const {
 
     const loadHistory = async () => {
       try {
-        const res = await fetch(`https://hogwarts-2.onrender.com/api/history?session_id=${encodeURIComponent(sessionId)}`);
+        const res = await fetch(`${API_BASE}/history?session_id=${encodeURIComponent(sessionId)}`);
         if (!res.ok) return;
         const data = await res.json();
         const msgs: any[] = data.messages || [];
@@ -1188,7 +1212,7 @@ const {
         if (activeCharacter && !activeCharacter.house) {
           // game_state'ten house'u çek
           try {
-            const gsRes = await fetch(`https://hogwarts-2.onrender.com/api/house-points?session_id=${encodeURIComponent(sessionId)}`);
+            const gsRes = await fetch(`${API_BASE}/house-points?session_id=${encodeURIComponent(sessionId)}`);
             if (gsRes.ok) {
               const gsData = await gsRes.json();
               const ph = gsData.game_state?.player_house;
@@ -1254,7 +1278,7 @@ const {
           id: `narrator-${Date.now()}`,
           role: 'ai',
           text: aiResponse.narratorInjection,
-          characterName: 'Hogwarts',
+          characterName: 'Valdenmoor',
         };
         setMessages([injectionMsg, ...nextMessages, createMessage('ai', aiResponse.text, aiResponse.characterName)]);
       } else {
@@ -1294,7 +1318,7 @@ const {
 
     // Call backend to set player house
     try {
-      await fetch('https://hogwarts-2.onrender.com/api/set-house', {
+      await fetch(`${API_BASE}/set-house`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ session_id: sessionId, house }),
@@ -1318,7 +1342,7 @@ const {
           id: `narrator-${Date.now()}`,
           role: 'ai',
           text: response.narratorInjection,
-          characterName: 'Hogwarts',
+          characterName: 'Valdenmoor',
         };
         setMessages([injectionMsg, ...nextMessages, createMessage('ai', response.text, response.characterName)]);
       } else {
@@ -1353,7 +1377,7 @@ const {
   const fetchHousePoints = async () => {
     if (!sessionId) return;
     try {
-      const res = await fetch(`https://hogwarts-2.onrender.com/api/house-points?session_id=${encodeURIComponent(sessionId)}`);
+      const res = await fetch(`${API_BASE}/house-points?session_id=${encodeURIComponent(sessionId)}`);
       if (!res.ok) return;
       const data = await res.json();
       if (data.points_floor_started_at) {
@@ -1373,7 +1397,7 @@ const {
     if (!sessionId) return;
     try {
       const res = await fetch(
-        `https://hogwarts-2.onrender.com/api/schedule?session_id=${encodeURIComponent(sessionId)}&language=${language}`,
+        `${API_BASE}/schedule?session_id=${encodeURIComponent(sessionId)}&language=${language}`,
       );
       if (!res.ok) return;
       const data = await res.json();
@@ -1386,7 +1410,7 @@ const {
     if (!sessionId) return;
     try {
       const res = await fetch(
-        `https://hogwarts-2.onrender.com/api/schedule?session_id=${encodeURIComponent(sessionId)}&language=${language}`,
+        `${API_BASE}/schedule?session_id=${encodeURIComponent(sessionId)}&language=${language}`,
       );
       if (!res.ok) return;
       const data = await res.json();
@@ -1429,19 +1453,7 @@ const {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.overlay}>
-        <Animated.Image
-          source={LOCATION_BACKGROUNDS[displayLocation] ?? LOCATION_BACKGROUNDS.gryffindor_tower}
-          style={{
-            ...StyleSheet.absoluteFillObject,
-            width: '100%',
-            height: '100%',
-            opacity: bgOpacity.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0, 1.0],
-            }),
-          } as any}
-          resizeMode="cover"
-        />
+        <View style={styles.kingdomBackground} />
         <View style={styles.backgroundDarkOverlay} />
         <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
         <KeyboardAvoidingView
@@ -1449,24 +1461,6 @@ const {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
           <View style={[styles.screen, { position: 'relative' }]}>
-            {/* Sol panel: 1. ve 2. sıra */}
-            <HousePointsPanel
-              displayPoints={displayPoints}
-              housePoints={housePoints}
-              playerHouse={playerHouse}
-              side="left"
-              headerHeight={64}
-            />
-
-            {/* Sağ panel: 3. ve 4. sıra */}
-            <HousePointsPanel
-              displayPoints={displayPoints}
-              housePoints={housePoints}
-              playerHouse={playerHouse}
-              side="right"
-              headerHeight={64}
-            />
-
             <View style={styles.header}>
               <Text style={styles.headerTitle}>{NARRATOR_NAME}</Text>
               <Text style={styles.headerSubtitle}>{t(language, 'narratorSubtitle')}</Text>
@@ -1521,65 +1515,38 @@ const {
               }
             />
 
-            {showHouseSelection ? (
-              <View style={styles.houseSelectionArea}>
-                <View style={styles.houseButtonsRow}>
-                  {HOUSES.map((house) => (
-                    <TouchableOpacity
-                      key={house}
-                      onPress={() => handleHouseSelect(house)}
-                      disabled={isLoading}
-                      style={[
-                        styles.houseButton,
-                        { backgroundColor: houseColor(house) },
-                        isLoading && styles.houseButtonDisabled,
-                      ]}
-                    >
-                      <Text style={styles.houseButtonText}>{house}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+            <View style={styles.inputArea}>
+              <Text style={styles.inputTip}>{inputTips[tipIndex]}</Text>
+              <View style={[styles.inputBox, styles.inputBoxSpacing]}>
+                <TextInput
+                  value={inputText}
+                  onChangeText={setInputText}
+                  onSubmitEditing={isWeb ? undefined : handleSend}
+                  onKeyPress={isWeb ? handleKeyPress : undefined}
+                  onContentSizeChange={handleContentSizeChange}
+                  placeholder={t(language, 'inputPlaceholderWeb')}
+                  placeholderTextColor="#8B7355"
+                  multiline={!isWeb}
+                  blurOnSubmit={false}
+                  returnKeyType="send"
+                  underlineColorAndroid="transparent"
+                  textAlignVertical="center"
+                  scrollEnabled={inputHeight >= MAX_INPUT_HEIGHT}
+                  style={[styles.textInput, { height: inputHeight }, WEB_INPUT_RESET]}
+                />
+                <Pressable
+                  onPress={handleSend}
+                  disabled={!canSend || isLoading}
+                  style={({ pressed }) => [
+                    styles.sendButton,
+                    canSend && !isLoading ? styles.sendButtonActive : styles.sendButtonDisabled,
+                    pressed && canSend && !isLoading ? styles.sendButtonPressed : null,
+                  ]}
+                >
+                  <Text style={styles.sendButtonText}>↑</Text>
+                </Pressable>
               </View>
-            ) : (
-              <View style={styles.inputArea}>
-                <Text style={styles.inputTip}>{inputTips[tipIndex]}</Text>
-                <View style={[styles.inputBox, styles.inputBoxSpacing]}>
-                  <TextInput
-                    value={inputText}
-                    onChangeText={setInputText}
-                    onSubmitEditing={isWeb ? undefined : handleSend}
-                    onKeyPress={isWeb ? handleKeyPress : undefined}
-                    onContentSizeChange={handleContentSizeChange}
-                    placeholder={t(language, 'inputPlaceholderWeb')}
-                    placeholderTextColor="#8B7355"
-                    multiline={!isWeb}
-                    blurOnSubmit={false}
-                    returnKeyType="send"
-                    underlineColorAndroid="transparent"
-                    textAlignVertical="center"
-                    scrollEnabled={inputHeight >= MAX_INPUT_HEIGHT}
-                    style={[styles.textInput, { height: inputHeight }, WEB_INPUT_RESET]}
-                  />
-                  <Pressable
-                    onPress={handleSend}
-                    disabled={!canSend || isLoading}
-                    style={({ pressed }) => [
-                      styles.sendButton,
-                      canSend && !isLoading ? styles.sendButtonActive : styles.sendButtonDisabled,
-                      pressed && canSend && !isLoading ? styles.sendButtonPressed : null,
-                    ]}
-                  >
-                    <Text style={styles.sendButtonText}>↑</Text>
-                  </Pressable>
-                </View>
-              </View>
-            )}
-
-            <TimeStrip data={scheduleData} onPress={() => setShowSchedule(true)} language={language} />
-
-            {showSchedule && (
-              <SchedulePopup data={scheduleData} onClose={() => setShowSchedule(false)} language={language} />
-            )}
+            </View>
           </View>
         </KeyboardAvoidingView>
       </View>
@@ -1593,6 +1560,10 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: 'transparent',
+  },
+  kingdomBackground: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#0a0604',
   },
   overlay: {
     flex: 1,

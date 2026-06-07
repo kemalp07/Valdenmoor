@@ -33,7 +33,7 @@ app.include_router(locations_router, prefix="/api")
 
 @app.get("/")
 async def root():
-    return {"status": "hp-app backend (stub)"}
+    return {"status": "fantasyworld backend ok"}
 
 
 @app.get("/debug/env-status")

@@ -62,11 +62,11 @@ const OPTION_SETS: Record<Language, Record<OptionKey, readonly string[]>> = {
 
 export const translations = {
   tr: {
-    welcome: "Hogwarts'a Hoş Geldin",
-    noCharacter: 'Henüz karakterin yok',
-    newCharacter: 'Yeni Karakter Oluştur',
-    addCharacter: '+ Yeni Karakter',
-    houseNotSelected: 'Ev seçilmedi',
+    welcome: "Valdenmoor'a Hoş Geldin",
+    noCharacter: 'Yeni bir hükümdar adı gir ve tahta geç',
+    newCharacter: 'Krallığa Başla',
+    addCharacter: '+ Yeni Oyun',
+    houseNotSelected: 'Valdenmoor',
     deleteCharacter: 'Karakteri Sil',
     deleteConfirm: (name: string) => `"${name}" ve tüm sohbet geçmişi silinecek. Emin misin?`,
     cancel: 'İptal',
@@ -97,14 +97,14 @@ export const translations = {
     stepWandCore: 'Asanın özü...',
     stepWandLength: 'Asanın uzunluğu...',
     stepWandFlexibility: 'Asanın esnekliği...',
-    startHogwarts: "Hogwarts'a Başla",
+    startHogwarts: "Krallığa Başla",
     wandDescription: (wood: string, core: string, length: string, flexibility: string) =>
       `${wood} asası, ${core}, ${length}, ${flexibility}`,
     inputPlaceholder: 'Bir şey yaz...',
     inputPlaceholderWeb: 'Mesaj yaz... (devam et = hikaye ilerler)',
     typing: 'yazıyor...',
-    narratorSubtitle: 'Büyücü Dünyası',
-    emptyStateSubtitle: 'Sana nasıl yardımcı olabilirim?',
+    narratorSubtitle: 'Krallık Yönetimi',
+    emptyStateSubtitle: 'Krallığın seni bekliyor...',
     errorMessage: 'Bir şeyler ters gitti, tekrar dener misin?',
     edit: 'Düzenle',
     save: 'Kaydet',
@@ -119,10 +119,10 @@ export const translations = {
     noClassesTomorrow: 'Yarın ders yok',
     missPenalty: (points: number) => `kaçırırsan -${points} puan`,
     close: 'Kapat',
-    aiErrorFallback: '⏳ Hogwarts büyüleri yüklenirken bir aksaklık yaşandı. Lütfen tekrar dene...',
+    aiErrorFallback: '⏳ Valdenmoor yanıt verirken bir aksaklık yaşandı. Lütfen tekrar dene...',
   },
   en: {
-    welcome: 'Welcome to Hogwarts',
+    welcome: 'Welcome to Valdenmoor',
     noCharacter: 'No characters yet',
     newCharacter: 'Create New Character',
     addCharacter: '+ New Character',
@@ -157,13 +157,13 @@ export const translations = {
     stepWandCore: 'Your wand core...',
     stepWandLength: 'Your wand length...',
     stepWandFlexibility: 'Your wand flexibility...',
-    startHogwarts: 'Begin at Hogwarts',
+    startHogwarts: 'Begin Your Reign',
     wandDescription: (wood: string, core: string, length: string, flexibility: string) =>
       `${wood} wand, ${core}, ${length}, ${flexibility}`,
     inputPlaceholder: 'Write something...',
     inputPlaceholderWeb: 'Write a message... (type "continue" to progress the story)',
     typing: 'typing...',
-    narratorSubtitle: 'Wizarding World',
+    narratorSubtitle: 'Kingdom Management',
     emptyStateSubtitle: 'How can I help you?',
     errorMessage: 'Something went wrong. Would you like to try again?',
     edit: 'Edit',
@@ -179,7 +179,7 @@ export const translations = {
     noClassesTomorrow: 'No classes tomorrow',
     missPenalty: (points: number) => `miss it = -${points} points`,
     close: 'Close',
-    aiErrorFallback: '⏳ A hiccup occurred while loading Hogwarts magic. Please try again...',
+    aiErrorFallback: '⏳ A hiccup occurred while reaching Valdenmoor. Please try again...',
   },
 } as const;
 
@@ -207,12 +207,12 @@ export function getInputTips(lang: Language): string[] {
     ];
   }
   return [
-    '💬 Karakter konuşturmak için tırnak kullan: "Hermione\'ye bak"',
-    '⚡ Eylem için yıldız kullan: *çevreye bakınır*',
-    '🧙 Bir karakteri çağır: Snape\'e bir soru sor',
-    '📖 Sahneyi yönlendir: Kütüphaneye gitmek istiyorum',
-    '🔮 Duygu belirt: Biraz tedirgin hissediyorum',
-    '📖 Hikayeye devam etmek için sadece "devam et" yaz',
+    '💬 Emir ver: "Veziri çağır"',
+    '⚡ Eylem: *pencereden dışarı bakarım*',
+    '👑 Karar al: Orduya maaş öde',
+    '📖 Sahne yönlendir: Saray bahçesine çıkmak istiyorum',
+    '🔮 Duygu belirt: Halkın desteğinden endişeliyim',
+    '📖 Hikayeye devam için "devam et" yaz',
   ];
 }
 

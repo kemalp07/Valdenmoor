@@ -26,7 +26,7 @@ if (!sessionId) {
   localStorage.setItem('session_id', sessionId);
 }
 
-const BACKEND_BASE = 'http://127.0.0.1:9000';
+const BACKEND_BASE = 'http://localhost:8001';
 
 // Parse message: *...* → italik gri narration, "..." → parlak dialog, \n → <br>
 function parseMessage(text) {
@@ -81,7 +81,7 @@ function addAIMessage(text, senderName) {
     <div class="message-inner">
       <div class="avatar">🧙</div>
       <div class="content">
-        <div class="sender">${senderName || 'Hogwarts'}</div>
+        <div class="sender">${senderName || 'Valdenmoor'}</div>
         <div class="text">${parseMessage(text)}</div>
       </div>
     </div>
@@ -252,7 +252,7 @@ async function sendMessage(text) {
         }
 
         if (parsed.type === 'done') {
-          if (senderEl) senderEl.textContent = parsed.character_name || 'Hogwarts';
+          if (senderEl) senderEl.textContent = parsed.character_name || 'Valdenmoor';
           typewriter.flush();
         }
       } catch (e) {
@@ -306,7 +306,7 @@ chatForm.addEventListener('submit', async (e) => {
         if (msg.role === 'user') {
           addUserMessage(msg.content);
         } else {
-          addAIMessage(msg.content, 'Hogwarts');
+          addAIMessage(msg.content, 'Valdenmoor');
         }
       });
     } else {
