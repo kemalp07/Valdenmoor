@@ -480,7 +480,9 @@ async def chat_endpoint(request: Request):
             system_prompt = ""
             if messages_for_model and messages_for_model[0].get("role") == "system":
                 system_prompt = messages_for_model[0].get("content", "")
-            print("SYSTEM PROMPT SENT:", system_prompt[:500], flush=True)
+            print("=== SYSTEM PROMPT (ilk 2000) ===", flush=True)
+            print(system_prompt[:2000], flush=True)
+            print("=== SYSTEM PROMPT SONU ===", flush=True)
             async for chunk in stream_vertex_ai(messages_for_model, model=model):
                 full_text += chunk
                 out_buf += chunk
@@ -514,6 +516,9 @@ async def chat_endpoint(request: Request):
             yield f"data: {payload}\n\n"
 
         memory_state["full_text"] = full_text
+        print("=== AI FULL RESPONSE ===", flush=True)
+        print(full_text[:1000], flush=True)
+        print("=== AI RESPONSE SONU ===", flush=True)
         char_name = detect_character(full_text)
         await save_messages(session_id, message, full_text)
 
