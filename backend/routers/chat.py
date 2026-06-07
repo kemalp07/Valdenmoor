@@ -80,6 +80,64 @@ _NPC_CHARACTER_IDS = [
 ]
 
 
+def _get_initial_loyalty(character_id: str, origin: str, ruling_style: str) -> int:
+    """Her karakterin başlangıç loyalty'si kendi doğasına ve oyuncunun kökenine göre belirlenir."""
+
+    base = {
+        "lord_aldric_vane": 45,
+        "lord_harwin_sorn": 40,
+        "lord_cerin_vane": 35,
+        "priest_edran": 55,
+        "mira": 70,
+        "general_caelan_voss": 60,
+        "lord_commander_draven": 55,
+        "commander_sera_ashford": 65,
+        "tomas": 60,
+        "lena": 65,
+        "duke_malachar": 10,
+        "general_harkon": 15,
+        "king_edwyn": 50,
+        "princess_elowen": 55,
+        "prince_aldric_selmara": 30,
+        "sultan_rashid": 40,
+        "envoy_zara": 35,
+    }
+
+    loyalty = base.get(character_id, 50)
+
+    if origin == "warrior":
+        if character_id in ("general_caelan_voss", "lord_commander_draven", "commander_sera_ashford"):
+            loyalty += 10
+    elif origin == "merchant":
+        if character_id in ("tomas", "sultan_rashid", "envoy_zara"):
+            loyalty += 8
+        if character_id in ("lord_harwin_sorn",):
+            loyalty -= 5
+    elif origin == "noble":
+        if character_id in ("lord_aldric_vane", "lord_cerin_vane"):
+            loyalty += 5
+        if character_id in ("tomas", "lena"):
+            loyalty -= 5
+
+    if ruling_style == "harsh":
+        if character_id in ("general_caelan_voss", "lord_commander_draven"):
+            loyalty += 5
+        if character_id in ("tomas", "lena", "priest_edran"):
+            loyalty -= 8
+    elif ruling_style == "diplomatic":
+        if character_id in ("princess_elowen", "king_edwyn"):
+            loyalty += 8
+        if character_id in ("duke_malachar",):
+            loyalty += 5
+    elif ruling_style == "cunning":
+        if character_id in ("mira", "envoy_zara"):
+            loyalty += 5
+        if character_id in ("lord_aldric_vane",):
+            loyalty -= 8
+
+    return max(5, min(95, loyalty))
+
+
 def _normalize_gender(gender: str) -> str:
     return gender if gender in ("king", "queen") else "king"
 
@@ -129,10 +187,11 @@ def _ensure_game_session(
         logger.error(f"ensure_game_session error: {e}")
 
 
-def _init_game_for_new_session(session_id: str, origin: str) -> None:
+def _init_game_for_new_session(session_id: str, origin: str, ruling_style: str = "diplomatic") -> None:
     if not supabase:
         return
     origin = _normalize_origin(origin)
+    ruling_style = _normalize_ruling_style(ruling_style)
     try:
         stats_resp = (
             supabase.table("game_stats")
@@ -154,12 +213,11 @@ def _init_game_for_new_session(session_id: str, origin: str) -> None:
             .execute()
         )
         if not relations_resp.data:
-            loyalty_base = 60 if origin == "noble" else 50
             rows = [
                 {
                     "session_id": session_id,
                     "character_id": character_id,
-                    "loyalty": loyalty_base,
+                    "loyalty": _get_initial_loyalty(character_id, origin, ruling_style),
                 }
                 for character_id in _NPC_CHARACTER_IDS
             ]
@@ -829,7 +887,7 @@ async def save_character(request: Request):
                 ruling_style,
                 origin,
             )
-            _init_game_for_new_session(session_id, origin)
+            _init_game_for_new_session(session_id, origin, ruling_style)
             supabase.table("characters").upsert({
                 "id": character.get("id"),
                 "session_id": session_id,
