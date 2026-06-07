@@ -33,6 +33,11 @@ from pathlib import Path
 from datetime import datetime
 
 router = APIRouter()
+
+_CHARACTER_ID_MAP = {
+    "valdenmoor-narrator": "00000000-0000-0000-0000-000000000001",
+    "hogwarts-narrator": "00000000-0000-0000-0000-000000000002",
+}
 logger = logging.getLogger(__name__)
 
 MAX_HISTORY_MESSAGES = 30
@@ -350,7 +355,8 @@ async def chat_endpoint(request: Request):
     message = body.get("message", "")
     history = body.get("history") or []
     session_id = body.get("session_id") or str(uuid.uuid4())
-    character_id = body.get("character_id") or "hogwarts-narrator"
+    _raw_cid = body.get("character_id") or "valdenmoor-narrator"
+    character_id = _CHARACTER_ID_MAP.get(_raw_cid, _raw_cid)
     location_id = body.get("location_id") or "great-hall"
     user_name = body.get("user_name") or "Öğrenci"
     character_profile = body.get("character_profile")
@@ -549,6 +555,8 @@ async def chat_endpoint(request: Request):
 async def run_simulation_endpoint(request: Request):
     body = await request.json()
     session_id = body.get("session_id", "")
+    _raw_cid = body.get("character_id") or "valdenmoor-narrator"
+    character_id = _CHARACTER_ID_MAP.get(_raw_cid, _raw_cid)
     player_house = body.get("player_house", "gryffindor")
     week = int(body.get("week", 1))
     day = int(body.get("day", 1))
@@ -590,7 +598,7 @@ async def run_simulation_endpoint(request: Request):
                     recent_for_memory = conversation[-10:]
                     episodic_summary = await generate_summary(recent_for_memory)
                     if episodic_summary:
-                        await save_memory(session_id, body.get("character_id", "hogwarts-narrator"), episodic_summary)
+                        await save_memory(session_id, character_id, episodic_summary)
                 except Exception as e:
                     logger.error(f"Episodic memory error: {e}")
         except Exception as e:
