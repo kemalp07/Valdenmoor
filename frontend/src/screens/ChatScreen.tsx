@@ -25,7 +25,6 @@ import { t } from '../i18n/translations';
 
 const NARRATOR_NAME = 'Valdenmoor';
 const NARRATOR_CREST = require('../../assets/valdenmoor_crest.png');
-const HOUSES = ['Gryffindor', 'Hufflepuff', 'Ravenclaw', 'Slytherin'] as const;
 const MIN_INPUT_HEIGHT = 36;
 const MAX_INPUT_HEIGHT = 100;
 
@@ -33,21 +32,6 @@ const WEB_INPUT_RESET =
   Platform.OS === 'web'
     ? ({ outlineWidth: 0, outlineStyle: 'none', boxShadow: 'none' } as any)
     : undefined;
-
-function houseColor(house: string): string {
-  switch (house) {
-    case 'Gryffindor':
-      return '#8B0000';
-    case 'Hufflepuff':
-      return '#D97706';
-    case 'Ravenclaw':
-      return '#1E3A8A';
-    case 'Slytherin':
-      return '#166534';
-    default:
-      return '#888';
-  }
-}
 
 function createMessage(role: 'user' | 'ai', text: string, characterName?: string): Message {
   return {

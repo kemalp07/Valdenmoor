@@ -17,52 +17,22 @@ import {
   TextInputKeyPressEventData,
   View,
 } from 'react-native';
-import { Asset } from 'expo-asset';
 import { API_BASE } from '../config/api';
-import { useAppContext, Message, saveCharacterToDB } from '../context/AppContext';
+import { useAppContext, Message } from '../context/AppContext';
 import { getFirstMessage } from '../services/characterCard';
 import { deleteMessage, sendMessage as sendAiMessage, updateMessage } from '../services/aiService';
-import { housePointsEqual, normalizeHousePoints } from '../utils/housePoints';
 import { getInputTips, getTagNames, t, Language } from '../i18n/translations';
-import { localizeScheduleData } from '../i18n/schedule';
 
 const NARRATOR_NAME = 'Valdenmoor';
 const NARRATOR_CREST = require('../../assets/valdenmoor_crest.png');
-const HOUSE_POINTS_POLL_MS = 3000;
-const HOUSE_POINTS_REFRESH_DELAYS = [1500, 3500, 6000, 10000, 18000] as const;
-const HOUSES = ['Gryffindor', 'Hufflepuff', 'Ravenclaw', 'Slytherin'] as const;
+const USER_BUBBLE_COLOR = 'rgba(120, 50, 8, 0.95)';
 const MIN_INPUT_HEIGHT = 36;
 const MAX_INPUT_HEIGHT = 100;
-const LOOP_CROSSFADE_SECONDS = 0.75;
-const LOOP_CROSSFADE_MS = 650;
 
 const WEB_INPUT_RESET =
   Platform.OS === 'web'
     ? ({ outlineWidth: 0, outlineStyle: 'none', boxShadow: 'none' } as any)
     : undefined;
-
-const LOCATION_BACKGROUNDS: Record<string, any> = {
-  throne_room: require('../../assets/backgrounds/throne_room.png'),
-  great_hall: require('../../assets/backgrounds/great_hall.png'),
-  war_room: require('../../assets/backgrounds/war_room.png'),
-  castle_corridor: require('../../assets/backgrounds/castle_corridor.png'),
-  castle_exterior: require('../../assets/backgrounds/castle_exterior.png'),
-  ashenmoor_market: require('../../assets/backgrounds/ashenmoor_market.png'),
-  ashenmoor_streets: require('../../assets/backgrounds/ashenmoor_streets.png'),
-  dawnhold_fortress: require('../../assets/backgrounds/dawnhold_fortress.png'),
-  varethis_harbor: require('../../assets/backgrounds/varethis_harbor.png'),
-  varethis_sea: require('../../assets/backgrounds/varethis_sea.png'),
-  throne_antechamber: require('../../assets/backgrounds/throne_antechamber.png'),
-  castle_dungeon: require('../../assets/backgrounds/castle_dungeon.png'),
-  castle_battlements: require('../../assets/backgrounds/castle_battlements.png'),
-  royal_chambers: require('../../assets/backgrounds/royal_chambers.png'),
-  forest_path: require('../../assets/backgrounds/forest_path.png'),
-  selmara_palace: require('../../assets/backgrounds/selmara_palace.png'),
-  kadir_bazaar: require('../../assets/backgrounds/kadir_bazaar.png'),
-  battlefield: require('../../assets/backgrounds/battlefield.png'),
-  council_chamber: require('../../assets/backgrounds/council_chamber.png'),
-  chapel: require('../../assets/backgrounds/chapel.png'),
-};
 
 const CHARACTER_AVATARS: Record<string, any> = {
   NARRATOR: NARRATOR_CREST,
@@ -106,16 +76,6 @@ const TAG_AVATARS: Record<string, any> = {
   TOMAS: require('../../assets/characters/tomas.jpg'),
   LENA: require('../../assets/characters/lena.jpg'),
 };
-
-function houseColor(house: string): string {
-  switch (house.toLowerCase()) {
-    case 'gryffindor': return 'rgba(120, 10, 10, 0.92)';
-    case 'slytherin': return 'rgba(10, 80, 40, 0.92)';
-    case 'hufflepuff': return 'rgba(140, 100, 0, 0.92)';
-    case 'ravenclaw': return 'rgba(10, 40, 110, 0.92)';
-    default: return 'rgba(60, 40, 10, 0.92)';
-  }
-}
 
 function createMessage(role: 'user' | 'ai', text: string, characterName?: string): Message {
   return {
@@ -180,9 +140,7 @@ type MessageEditProps = {
   setMessages: (msgs: Message[] | ((prev: Message[]) => Message[])) => void;
 };
 
-type MessageBubbleProps = MessageEditProps & {
-  hogwartsHouse: string;
-};
+type MessageBubbleProps = MessageEditProps;
 
 async function deleteMessageItem(
   sessionId: string,
@@ -478,9 +436,8 @@ function AIMessageBubble({
   setEditText,
   setEditingId,
   setMessages,
-  scheduleData,
   language,
-}: MessageEditProps & { scheduleData?: any; language: Language }) {
+}: MessageEditProps & { language: Language }) {
   if (isErrorMessage(item.text)) {
     return (
       <View style={styles.aiBlockRow}>
@@ -535,8 +492,6 @@ function AIMessageBubble({
       {mergedBlocks.map((block, index) => {
         const avatarSource =
           TAG_AVATARS[block.tag] ?? getCharacterAvatarSource(block.name) ?? TAG_AVATARS['UNKNOWN'];
-        const isFirstOrLastBlock = index === 0 || index === mergedBlocks.length - 1;
-
         return (
           <View key={`${item.id}-${index}`} style={styles.aiBlockRow}>
             <Image source={avatarSource} style={styles.aiBlockAvatarImage} resizeMode="contain" />
@@ -544,18 +499,6 @@ function AIMessageBubble({
               <Text style={styles.aiBlockName}>{block.name}</Text>
               <View style={styles.aiBubble}>
                 <BubbleInlineActions onEdit={startEdit} onDelete={handleDelete} />
-                {isFirstOrLastBlock && scheduleData && (
-                  <Text style={{
-                    color: 'rgba(201,168,76,0.65)',
-                    fontSize: 10,
-                    fontFamily: 'Cinzel, serif',
-                    fontWeight: '600',
-                    marginBottom: 6,
-                    letterSpacing: 0.5,
-                  }}>
-                    📅 {scheduleData.day_name} • {t(language, 'weekLabel', scheduleData.week)} • 🕙 {String(scheduleData.hour).padStart(2, '0')}:00
-                  </Text>
-                )}
                 <View style={styles.aiMessageRoot}>
                   {parseAIMessage(cleanContent(block.content))}
                 </View>
@@ -570,7 +513,6 @@ function AIMessageBubble({
 
 function MessageBubble({
   item,
-  hogwartsHouse,
   sessionId,
   editingId,
   editText,
@@ -578,7 +520,7 @@ function MessageBubble({
   setEditingId,
   setMessages,
 }: MessageBubbleProps) {
-  const bubbleColor = houseColor(hogwartsHouse);
+  const bubbleColor = USER_BUBBLE_COLOR;
 
   const startEdit = () => {
     setEditText(item.text);
@@ -618,458 +560,31 @@ function MessageBubble({
   );
 }
 
-const HOUSE_CONFIG: Record<string, { label: string; short: string; color: string; logoKey: string }> = {
-  gryffindor: { label: 'Gryffindor', short: 'GRIFF',   color: '#e8b86d', logoKey: 'gryffindor' },
-  hufflepuff:  { label: 'Hufflepuff', short: 'HUFF',    color: '#f0d060', logoKey: 'hufflepuff' },
-  ravenclaw:   { label: 'Ravenclaw',  short: 'RAVEN',   color: '#7eb8e8', logoKey: 'ravenclaw'  },
-  slytherin:   { label: 'Slytherin',  short: 'SLYTH',   color: '#7acf7a', logoKey: 'slytherin'  },
-};
-
-// Logo asset map — sen kendi asset path'lerini buraya yaz
-// Geçici olarak emoji kullan, logolar gelince değiştir
-const HOUSE_LOGOS: Record<string, any> = {
-  gryffindor: require('../../assets/valdenmoor_crest.png'),
-  ravenclaw: require('../../assets/valdenmoor_crest.png'),
-  hufflepuff: require('../../assets/valdenmoor_crest.png'),
-  slytherin: require('../../assets/valdenmoor_crest.png'),
-};
-
-const HOUSE_SCORE_COLOR: Record<string, string> = {
-  gryffindor: '#e8b86d',
-  hufflepuff:  '#f0d060',
-  ravenclaw:   '#7eb8e8',
-  slytherin:   '#7acf7a',
-};
-
-const HOUSE_SHORT: Record<string, string> = {
-  gryffindor: 'GRIFF',
-  hufflepuff:  'HUFF',
-  ravenclaw:   'RAVEN',
-  slytherin:   'SLYTH',
-};
-
-const RANK_ACCENT = ['#c9a84c', '#aaaaaa', '#8B6914', 'rgba(255,255,255,0.15)'];
-
-const HOUSE_EMOJIS: Record<string, string> = {
-  gryffindor: '🦁',
-  hufflepuff: '🦡',
-  ravenclaw:  '🦅',
-  slytherin:  '🐍',
-};
-
-interface HousePanelProps {
-  displayPoints: Record<string, number>;
-  housePoints: Record<string, number>;
-  playerHouse: string;
-  side: 'left' | 'right';
-  headerHeight: number;
-}
-
-const HousePointsPanel: React.FC<HousePanelProps> = ({
-  displayPoints, housePoints, playerHouse, side, headerHeight
-}) => {
-  const sorted = Object.entries(housePoints)
-    .sort((a, b) => b[1] - a[1])
-    .map(([h]) => h);
-
-  const indices = side === 'left' ? [0, 1] : [2, 3];
-
-  return (
-    <View
-      pointerEvents="none"
-      style={{
-        position: 'absolute',
-        top: headerHeight,
-        [side]: 0,
-        flexDirection: 'row',
-        paddingTop: 16,
-        paddingHorizontal: 8,
-        gap: 30,
-        zIndex: 20,
-        alignItems: 'flex-start',
-      }}
-    >
-      {indices.map((rankIdx) => {
-        const house = sorted[rankIdx];
-        if (!house) return null;
-        const rank = rankIdx + 1;
-        const isPlayer = house === playerHouse?.toLowerCase();
-        const accent = RANK_ACCENT[rankIdx];
-        const scoreColor = HOUSE_SCORE_COLOR[house] ?? '#ffffff';
-
-        return (
-          <View
-            key={house}
-            style={{
-              alignItems: 'center',
-              gap: 16,
-            }}
-          >
-            {/* Rank numarası */}
-            <View style={{
-              position: 'absolute',
-              top: 0, left: 0,
-              width: 22, height: 22,
-              borderRadius: 11,
-              backgroundColor: 'rgba(0,0,0,0.55)',
-              borderWidth: 0.5,
-              borderColor: accent,
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 1,
-            }}>
-              <Text style={{
-                fontSize: 11,
-                fontWeight: '700',
-                color: accent,
-                fontFamily: 'Cinzel, serif',
-              }}>
-                {rank}
-              </Text>
-            </View>
-
-            {/* Logo — büyük, şeffaf */}
-            <Image
-              source={HOUSE_LOGOS[house]}
-              style={{
-                width: 200,
-                height: 200,
-                resizeMode: 'contain',
-                opacity: isPlayer ? 1.0 : 0.8,
-              }}
-            />
-
-            {/* Puan */}
-            <Text style={{
-              fontSize: 40,
-              fontWeight: '700',
-              color: scoreColor,
-              fontFamily: 'Cinzel, serif',
-              lineHeight: 40,
-              textShadowColor: 'rgba(0,0,0,0.9)',
-              textShadowOffset: { width: 0, height: 1 },
-              textShadowRadius: 4,
-            }}>
-              {displayPoints[house] ?? 0}
-            </Text>
-          </View>
-        );
-      })}
-    </View>
-  );
-};
-
-const TimeStrip: React.FC<{ data: any; onPress: () => void; language: Language }> = ({ data, onPress, language }) => {
-  if (!data) return null;
-
-  const activeClass = data.schedule?.find((c: any) => c.status === 'active');
-  const upcomingClass = data.schedule?.find((c: any) => c.status === 'upcoming');
-
-  const accentColor = activeClass ? '#e87a7a'
-    : upcomingClass ? '#e8b86d'
-    : '#7acf7a';
-
-  return (
-    <Pressable
-      onPress={onPress}
-      pointerEvents="auto"
-      style={{
-        position: 'absolute',
-        bottom: 90,
-        right: 8,
-        width: 120,
-        height: 120,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: 'rgba(5,3,1,0.85)',
-        borderRadius: 8,
-        padding: 10,
-        borderWidth: 1,
-        borderColor: 'rgba(201,168,76,0.25)',
-        borderLeftWidth: 3,
-        borderLeftColor: accentColor,
-        zIndex: 15,
-      }}
-    >
-      <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 9, fontFamily: 'Cinzel, serif', letterSpacing: 1 }}>
-        {data.day_name} • {t(language, 'weekLabel', data.week)}
-      </Text>
-      <Text style={{ color: '#c9a84c', fontSize: 13, fontFamily: 'Cinzel, serif', fontWeight: '700', marginTop: 2 }}>
-        {String(data.hour).padStart(2, '0')}:00
-      </Text>
-      <Text style={{ color: accentColor, fontSize: 10, fontFamily: 'Cinzel, serif', marginTop: 3 }}>
-        {activeClass ? `🔴 ${activeClass.subject}`
-         : upcomingClass ? `⏳ ${upcomingClass.subject}`
-         : t(language, 'freeTime')}
-      </Text>
-    </Pressable>
-  );
-};
-
-const SchedulePopup: React.FC<{
-  data: any;
-  onClose: () => void;
-  language: Language;
-}> = ({ data, onClose, language }) => {
-  if (!data) return null;
-
-  const statusIcon = (status: string) => {
-    switch (status) {
-      case 'done':
-        return '✅';
-      case 'active':
-        return '🔴';
-      case 'upcoming':
-        return '⏳';
-      default:
-        return '📚';
-    }
-  };
-
-  return (
-    <Pressable
-      onPress={onClose}
-      style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        zIndex: 100,
-        justifyContent: 'flex-start',
-        alignItems: 'center',
-        paddingTop: 120,
-      }}
-    >
-      <Pressable
-        onPress={(e) => e.stopPropagation?.()}
-        style={{
-          backgroundColor: 'rgba(15, 10, 3, 0.97)',
-          borderRadius: 12,
-          padding: 20,
-          width: 320,
-          borderWidth: 1,
-          borderColor: 'rgba(201,168,76,0.3)',
-        }}
-      >
-        <Text
-          style={{
-            color: '#c9a84c',
-            fontSize: 16,
-            fontFamily: 'Cinzel, serif',
-            fontWeight: '600',
-            textAlign: 'center',
-            marginBottom: 4,
-          }}
-        >
-          {t(language, 'scheduleTitle', data.day_name)}
-        </Text>
-        <Text
-          style={{
-            color: 'rgba(255,255,255,0.4)',
-            fontSize: 11,
-            fontFamily: 'Cinzel, serif',
-            textAlign: 'center',
-            marginBottom: 16,
-          }}
-        >
-          {t(language, 'scheduleTime', String(data.hour).padStart(2, '0'))} • {t(language, 'weekLabel', data.week)}
-        </Text>
-
-        {data.schedule?.length === 0 ? (
-          <Text style={{ color: 'rgba(255,255,255,0.5)', textAlign: 'center', fontStyle: 'italic' }}>
-            {t(language, 'noClassesToday')}
-          </Text>
-        ) : (
-          data.schedule?.map((cls: any, i: number) => (
-            <View
-              key={i}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                paddingVertical: 8,
-                borderBottomWidth: 0.5,
-                borderBottomColor: 'rgba(255,255,255,0.08)',
-                gap: 10,
-              }}
-            >
-              <Text style={{ fontSize: 16 }}>{statusIcon(cls.status)}</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: '#fff', fontSize: 13, fontFamily: 'Cinzel, serif' }}>
-                  {cls.time} — {cls.subject}
-                </Text>
-                {cls.teacher ? (
-                  <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>
-                    {cls.teacher}
-                    {cls.penalty > 0 ? ` • ${t(language, 'missPenalty', cls.penalty)}` : ''}
-                  </Text>
-                ) : null}
-              </View>
-            </View>
-          ))
-        )}
-
-        <Text
-          style={{
-            color: '#c9a84c',
-            fontSize: 13,
-            fontFamily: 'Cinzel, serif',
-            marginTop: 16,
-            marginBottom: 8,
-            fontWeight: '600',
-          }}
-        >
-          {t(language, 'tomorrow', data.tomorrow_day_name)}
-        </Text>
-        {data.tomorrow_schedule?.length === 0 ? (
-          <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, fontStyle: 'italic' }}>
-            {t(language, 'noClassesTomorrow')}
-          </Text>
-        ) : (
-          data.tomorrow_schedule?.map((cls: any, i: number) => (
-            <View
-              key={`tomorrow-${i}`}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                paddingVertical: 6,
-                borderBottomWidth: 0.5,
-                borderBottomColor: 'rgba(255,255,255,0.06)',
-                gap: 10,
-              }}
-            >
-              <Text style={{ fontSize: 14 }}>📚</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12, fontFamily: 'Cinzel, serif' }}>
-                  {cls.time} — {cls.subject}
-                </Text>
-                {cls.teacher ? (
-                  <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 10 }}>
-                    {cls.teacher}
-                  </Text>
-                ) : null}
-              </View>
-            </View>
-          ))
-        )}
-
-        <Pressable onPress={onClose} style={{ marginTop: 16, alignItems: 'center' }}>
-          <Text style={{ color: 'rgba(201,168,76,0.6)', fontSize: 12, fontFamily: 'Cinzel, serif' }}>
-            {t(language, 'close')}
-          </Text>
-        </Pressable>
-      </Pressable>
-    </Pressable>
-  );
-};
-
 export const ChatScreen = ({ navigation }: any) => {
-const {
-  activeCharacter,
-  characters,
-  setCharacters,
-  setActiveCharacter,
-  sessionId,
-  messages,
-  setMessages,
-  isLoading,
-  setIsLoading,
-  housePoints,
-  gameState,
-  setHousePoints,
-  setGameState,
-  language,
-} = useAppContext();
+  const {
+    activeCharacter,
+    sessionId,
+    messages,
+    setMessages,
+    isLoading,
+    setIsLoading,
+    language,
+  } = useAppContext();
 
   const inputTips = useMemo(() => getInputTips(language), [language]);
-
   const userName = activeCharacter?.name || '';
-  const playerAttraction = activeCharacter?.attraction || 'Her ikisi';
-  const hogwartsHouse = activeCharacter?.house || '';
-  const characterProfile = activeCharacter ? {
-    gender: activeCharacter.gender,
-    traits: activeCharacter.traits,
-    origin: activeCharacter.origin,
-    height: activeCharacter.height,
-    hairColor: activeCharacter.hairColor,
-    fear: activeCharacter.fear,
-    hobby: activeCharacter.hobby,
-    secretTrait: activeCharacter.secretTrait,
-    wand: activeCharacter.wand,
-  } : null;
-
-  // House points animation state
-  const prevHousePoints = useRef({ gryffindor: 0, hufflepuff: 0, ravenclaw: 0, slytherin: 0 });
-  const pointsFloorStartedAtRef = useRef<number | null>(null);
-  const [displayPoints, setDisplayPoints] = useState({ gryffindor: 0, hufflepuff: 0, ravenclaw: 0, slytherin: 0 });
-
-  const applyHousePoints = (points: Record<string, number>) => {
-    setHousePoints((prev: Record<string, number>) => {
-      const next = normalizeHousePoints(points, pointsFloorStartedAtRef.current);
-      return housePointsEqual(prev, next) ? prev : next;
-    });
-  };
-
-  const scheduleHousePointsRefresh = () => {
-    HOUSE_POINTS_REFRESH_DELAYS.forEach((delay) => {
-      setTimeout(() => fetchHousePoints(), delay);
-    });
-  };
-  const [playerHouse, setPlayerHouse] = useState<string>('gryffindor');
-  const animationRefs = useRef<Record<string, any>>({});
-
-  const setHogwartsHouse = (house: string) => {
-    if (!activeCharacter) return;
-    const updatedChar = { ...activeCharacter, house };
-    setActiveCharacter(updatedChar);
-    setCharacters(characters.map(c =>
-      c.id === activeCharacter.id ? { ...c, house } : c
-    ));
-    setPlayerHouse(house.toLowerCase());
-  };
-
-  const animatePointChange = (house: string, from: number, to: number) => {
-    if (animationRefs.current[house]) {
-      clearInterval(animationRefs.current[house]);
-    }
-    const duration = 1200; // ms — yavaş ve akıcı
-    const steps = 60;
-    const stepTime = duration / steps;
-    let current = 0;
-    animationRefs.current[house] = setInterval(() => {
-      current++;
-      const eased = from + (to - from) * (1 - Math.pow(1 - current / steps, 3)); // ease-out cubic
-      setDisplayPoints(prev => ({ ...prev, [house]: Math.round(eased) }));
-      if (current >= steps) {
-        clearInterval(animationRefs.current[house]);
-        setDisplayPoints(prev => ({ ...prev, [house]: to }));
+  const characterProfile = activeCharacter
+    ? {
+        gender: activeCharacter.gender,
+        traits: activeCharacter.traits,
+        origin: activeCharacter.origin,
+        height: activeCharacter.height,
+        hairColor: activeCharacter.hairColor,
+        fear: activeCharacter.fear,
+        hobby: activeCharacter.hobby,
+        secretTrait: activeCharacter.secretTrait,
       }
-    }, stepTime);
-  };
-
-  useEffect(() => {
-    (Object.keys(housePoints) as Array<keyof typeof housePoints>).forEach(house => {
-      const prev = prevHousePoints.current[house];
-      const next = housePoints[house];
-      if (prev !== next) {
-        animatePointChange(house, prev, next);
-      }
-    });
-    prevHousePoints.current = { ...housePoints };
-  }, [housePoints]);
-
-  useEffect(() => {
-    if (gameState?.playerHouse) {
-      setPlayerHouse(gameState.playerHouse);
-    }
-  }, [gameState]);
-
-  useEffect(() => {
-    if (activeCharacter?.house) {
-      setPlayerHouse(activeCharacter.house.toLowerCase());
-    }
-  }, [activeCharacter]);
+    : null;
 
   // Redirect to onboarding if no active character
   useEffect(() => {
@@ -1091,18 +606,8 @@ const {
 
   const [inputText, setInputText] = useState('');
   const [inputHeight, setInputHeight] = useState(MIN_INPUT_HEIGHT);
-  const [showHouseSelection, setShowHouseSelection] = useState<boolean>(false);
   const [tipIndex, setTipIndex] = useState(0);
   const [historyLoaded, setHistoryLoaded] = useState(false);
-  const [rawScheduleData, setRawScheduleData] = useState<any>(null);
-  const scheduleData = useMemo(
-    () => localizeScheduleData(rawScheduleData, language),
-    [rawScheduleData, language],
-  );
-  const [currentLocation, setCurrentLocation] = useState<string>('castle_exterior');
-  const [displayLocation, setDisplayLocation] = useState<string>('castle_exterior');
-  const bgOpacity = useRef(new Animated.Value(1)).current;
-  const [showSchedule, setShowSchedule] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
 
@@ -1115,7 +620,6 @@ const {
     if (messages.length > 0) return;
 
     openingRequested.current = true;
-    setShowHouseSelection(false);
 
     const loadOpening = async () => {
       setIsLoading(true);
@@ -1126,7 +630,6 @@ const {
           '',
           sessionId,
           characterProfile,
-          playerAttraction,
         );
         setMessages([
           createMessage('ai', aiResponse.text, aiResponse.characterName || NARRATOR_NAME),
@@ -1179,29 +682,6 @@ const {
         }));
 
         setMessages(loaded);
-        setShowHouseSelection(false);
-
-        // Eğer house yoksa ama history varsa — house seçimi gösterme
-        // History varsa oyuncu zaten ev seçmişti demektir
-        if (activeCharacter && !activeCharacter.house) {
-          // game_state'ten house'u çek
-          try {
-            const gsRes = await fetch(`${API_BASE}/house-points?session_id=${encodeURIComponent(sessionId)}`);
-            if (gsRes.ok) {
-              const gsData = await gsRes.json();
-              const ph = gsData.game_state?.player_house;
-              if (ph) {
-                // activeCharacter'ı güncelle
-                const updatedChar = { ...activeCharacter, house: ph };
-                // AppContext'teki setCharacters veya updateCharacter fonksiyonunu kullan
-                // Eğer yoksa localStorage'ı direkt güncelle:
-                const chars = JSON.parse(localStorage.getItem('hp_characters') || '[]');
-                const updated = chars.map((c: any) => c.id === activeCharacter.id ? { ...c, house: ph } : c);
-                localStorage.setItem('hp_characters', JSON.stringify(updated));
-              }
-            }
-          } catch {}
-        }
       } catch (e) {
         console.error('History load error:', e);
       }
@@ -1243,10 +723,7 @@ const {
     setIsLoading(true);
 
     try {
-      const aiResponse = await sendAiMessage(nextMessages, userName, hogwartsHouse, sessionId, characterProfile, playerAttraction);
-      if (aiResponse.housePoints) applyHousePoints(aiResponse.housePoints);
-      scheduleHousePointsRefresh();
-      if (aiResponse.gameState) setGameState(aiResponse.gameState);
+      const aiResponse = await sendAiMessage(nextMessages, userName, '', sessionId, characterProfile);
       if (aiResponse.narratorInjection) {
         const injectionMsg: Message = {
           id: `narrator-${Date.now()}`,
@@ -1261,8 +738,6 @@ const {
           createMessage('ai', aiResponse.text, aiResponse.characterName),
         ]);
       }
-      scheduleHousePointsRefresh();
-      setTimeout(() => fetchSchedule(), 2000);
     } catch (error) {
       console.error('AI Error:', error);
       setMessages([
@@ -1281,63 +756,6 @@ const {
     setInputHeight(nextHeight);
   };
 
-  const handleHouseSelect = async (house: string) => {
-    setHogwartsHouse(house);
-    if (activeCharacter) {
-      const updatedChar = { ...activeCharacter, house };
-      saveCharacterToDB(updatedChar, sessionId);
-    }
-    setPlayerHouse(house.toLowerCase());
-    setShowHouseSelection(false);
-
-    // Call backend to set player house
-    try {
-      await fetch(`${API_BASE}/set-house`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_id: sessionId, house }),
-      });
-    } catch (error) {
-      console.error('Set house error:', error);
-    }
-
-    const userMsg = createMessage('user', `${house}!`);
-    const nextMessages = [...messages, userMsg];
-    setMessages(nextMessages);
-    setIsLoading(true);
-
-    try {
-      const response = await sendAiMessage(nextMessages, userName, house, sessionId, characterProfile, playerAttraction);
-      if (response.housePoints) applyHousePoints(response.housePoints);
-      scheduleHousePointsRefresh();
-      if (response.gameState) setGameState(response.gameState);
-      if (response.narratorInjection) {
-        const injectionMsg: Message = {
-          id: `narrator-${Date.now()}`,
-          role: 'ai',
-          text: response.narratorInjection,
-          characterName: 'Valdenmoor',
-        };
-        setMessages([injectionMsg, ...nextMessages, createMessage('ai', response.text, response.characterName)]);
-      } else {
-        setMessages([
-          ...nextMessages,
-          createMessage('ai', response.text, response.characterName),
-        ]);
-      }
-      scheduleHousePointsRefresh();
-      setTimeout(() => fetchSchedule(), 2000);
-    } catch (error) {
-      console.error('AI Error:', error);
-      setMessages([
-        ...nextMessages,
-        createMessage('ai', t(language, 'errorMessage')),
-      ]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleKeyPress = (event: NativeSyntheticEvent<TextInputKeyPressEventData>) => {
     const webEvent = event as any;
     const shiftPressed = !!webEvent?.nativeEvent?.shiftKey;
@@ -1347,82 +765,6 @@ const {
       handleSend();
     }
   };
-
-  const fetchHousePoints = async () => {
-    if (!sessionId) return;
-    try {
-      const res = await fetch(`${API_BASE}/house-points?session_id=${encodeURIComponent(sessionId)}`);
-      if (!res.ok) return;
-      const data = await res.json();
-      if (data.points_floor_started_at) {
-        const startedMs = Date.parse(data.points_floor_started_at);
-        if (Number.isFinite(startedMs)) {
-          pointsFloorStartedAtRef.current = startedMs;
-        }
-      }
-      if (data.points) applyHousePoints(data.points);
-      if (data.game_state?.player_house) {
-        setPlayerHouse(data.game_state.player_house);
-      }
-    } catch {}
-  };
-
-  const fetchSchedule = async () => {
-    if (!sessionId) return;
-    try {
-      const res = await fetch(
-        `${API_BASE}/schedule?session_id=${encodeURIComponent(sessionId)}&language=${language}`,
-      );
-      if (!res.ok) return;
-      const data = await res.json();
-      setRawScheduleData(data);
-      if (data.location) setCurrentLocation(data.location);
-    } catch {}
-  };
-
-  const fetchLocation = async () => {
-    if (!sessionId) return;
-    try {
-      const res = await fetch(
-        `${API_BASE}/schedule?session_id=${encodeURIComponent(sessionId)}&language=${language}`,
-      );
-      if (!res.ok) return;
-      const data = await res.json();
-      if (data.location) setCurrentLocation(data.location);
-    } catch {}
-  };
-
-  useEffect(() => {
-    if (!sessionId) return;
-    fetchSchedule();
-    fetchLocation();
-  }, [sessionId, language]);
-
-  useEffect(() => {
-    Animated.timing(bgOpacity, {
-      toValue: 0,
-      duration: 600,
-      useNativeDriver: true,
-    }).start(() => {
-      setDisplayLocation(currentLocation);
-      Animated.timing(bgOpacity, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      }).start();
-    });
-  }, [currentLocation]);
-
-  useEffect(() => {
-    if (!sessionId) return;
-    fetchHousePoints();
-
-    const interval = setInterval(() => {
-      fetchHousePoints();
-    }, HOUSE_POINTS_POLL_MS);
-
-    return () => clearInterval(interval);
-  }, [sessionId]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -1455,13 +797,11 @@ const {
                     setEditText={setEditText}
                     setEditingId={setEditingId}
                     setMessages={setMessages}
-                    scheduleData={scheduleData}
                     language={language}
                   />
                 ) : (
                   <MessageBubble
                     item={item}
-                    hogwartsHouse={hogwartsHouse || playerHouse}
                     sessionId={sessionId}
                     editingId={editingId}
                     editText={editText}

@@ -4,6 +4,7 @@ import {
   Text,
   View,
   Image,
+  ImageBackground,
   Pressable,
   SafeAreaView,
   Platform,
@@ -101,14 +102,11 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation }
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.backgroundImage}>
-        <View style={styles.content}>
-        <Image
-          source={require('../../assets/valdenmoor_crest.png')}
-          style={styles.crestImage}
-          resizeMode="contain"
-        />
-
+      <ImageBackground
+        source={require('../../assets/backgrounds/onboarding_bg.png')}
+        style={styles.backgroundImage}
+        resizeMode="cover"
+      >
         <View style={styles.languageToggle}>
           <Pressable
             style={[styles.langBtn, language === 'tr' && styles.langBtnActive]}
@@ -124,61 +122,68 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation }
           </Pressable>
         </View>
 
-        <Text style={styles.title}>{t(language, 'welcome')}</Text>
-        <Text style={styles.subtitle}>{t(language, 'noCharacter')}</Text>
+        <View style={styles.content}>
+          <Image
+            source={require('../../assets/valdenmoor_crest.png')}
+            style={styles.crestImage}
+            resizeMode="contain"
+          />
+          <Text style={styles.title}>{t(language, 'welcome')}</Text>
 
-        <TextInput
-          value={rulerName}
-          onChangeText={setRulerName}
-          placeholder={t(language, 'namePlaceholder')}
-          placeholderTextColor="rgba(245, 220, 180, 0.4)"
-          style={styles.nameInput}
-          maxLength={30}
-        />
+          <View style={styles.mainBlock}>
+            <Text style={styles.subtitle}>{t(language, 'noCharacter')}</Text>
 
-        <Pressable
-          style={[styles.emptyButton, !rulerName.trim() && styles.emptyButtonDisabled]}
-          onPress={handleStartGame}
-          disabled={!rulerName.trim()}
-        >
-          <Text style={styles.emptyButtonText}>{t(language, 'newCharacter')}</Text>
-        </Pressable>
+            <TextInput
+              value={rulerName}
+              onChangeText={setRulerName}
+              placeholder={t(language, 'namePlaceholder')}
+              placeholderTextColor="rgba(245, 220, 180, 0.4)"
+              style={styles.nameInput}
+              maxLength={30}
+            />
 
-        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-          {characters.length === 0 ? (
-            <View style={styles.centerContent} />
-          ) : (
-            <View style={styles.characterList}>
-              {characters.map((character) => (
-                <View key={character.id} style={styles.characterCard}>
-                  <Pressable
-                    style={styles.characterCardContent}
-                    onPress={() => handleSelectCharacter(character)}
-                  >
-                    <Text style={styles.characterName}>{character.name}</Text>
-                    <View style={styles.characterDetails}>
-                      <Text style={styles.characterHouse}>{character.house || t(language, 'houseNotSelected')}</Text>
-                      <Text style={styles.characterTraits}>
-                        {character.traits.slice(0, 2).join(', ')}
-                      </Text>
-                    </View>
-                  </Pressable>
-                  <Pressable
-                    style={styles.deleteButton}
-                    onPress={() => handleDeleteCharacter(character)}
-                  >
-                    <Text style={styles.deleteButtonText}>✕</Text>
-                  </Pressable>
-                </View>
-              ))}
-              {characters.length < 3 && (
-                <Text style={styles.resumeHint}>{t(language, 'addCharacter')}</Text>
-              )}
-            </View>
+            <Pressable
+              style={[styles.emptyButton, !rulerName.trim() && styles.emptyButtonDisabled]}
+              onPress={handleStartGame}
+              disabled={!rulerName.trim()}
+            >
+              <Text style={styles.emptyButtonText}>{t(language, 'newCharacter')}</Text>
+            </Pressable>
+          </View>
+
+          {characters.length > 0 && (
+            <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+              <View style={styles.characterList}>
+                {characters.map((character) => (
+                  <View key={character.id} style={styles.characterCard}>
+                    <Pressable
+                      style={styles.characterCardContent}
+                      onPress={() => handleSelectCharacter(character)}
+                    >
+                      <Text style={styles.characterName}>{character.name}</Text>
+                      <View style={styles.characterDetails}>
+                        <Text style={styles.characterHouse}>{character.house || t(language, 'houseNotSelected')}</Text>
+                        <Text style={styles.characterTraits}>
+                          {character.traits.slice(0, 2).join(', ')}
+                        </Text>
+                      </View>
+                    </Pressable>
+                    <Pressable
+                      style={styles.deleteButton}
+                      onPress={() => handleDeleteCharacter(character)}
+                    >
+                      <Text style={styles.deleteButtonText}>✕</Text>
+                    </Pressable>
+                  </View>
+                ))}
+                {characters.length < 3 && (
+                  <Text style={styles.resumeHint}>{t(language, 'addCharacter')}</Text>
+                )}
+              </View>
+            </ScrollView>
           )}
-        </ScrollView>
-      </View>
-      </View>
+        </View>
+      </ImageBackground>
       {deleteTarget && (
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>
@@ -217,10 +222,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 24,
   },
+  mainBlock: {
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 400,
+  },
   crestImage: {
-    width: 120,
-    height: 120,
-    marginBottom: 24,
+    width: 420,
+    height: 360,
+    marginTop: -48,
+    marginBottom: -48,
   },
   nameInput: {
     width: '100%',
@@ -246,9 +257,12 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   languageToggle: {
+    position: 'absolute',
+    top: 16,
+    right: 24,
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 16,
+    zIndex: 10,
   },
   langBtn: {
     paddingHorizontal: 16,
@@ -277,7 +291,10 @@ const styles = StyleSheet.create({
     color: '#F5E6C8',
     fontFamily: 'Cinzel, serif',
     letterSpacing: 3,
+    marginTop: 24,
     marginBottom: 8,
+    width: '100%',
+    maxWidth: 400,
   },
   subtitle: {
     fontSize: 14,
@@ -289,15 +306,13 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   scrollView: {
-    flex: 1,
     width: '100%',
+    maxHeight: 220,
+    marginTop: 24,
   },
   scrollContent: {
     alignItems: 'center',
-    paddingBottom: 40,
-  },
-  centerContent: {
-    alignItems: 'center',
+    paddingBottom: 24,
   },
   characterList: {
     width: '100%',
@@ -397,7 +412,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(245, 220, 180, 0.3)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 24,
+    marginTop: 16,
   },
   emptyButtonText: {
     color: '#F5E6C8',

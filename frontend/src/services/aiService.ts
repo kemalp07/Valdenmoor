@@ -6,8 +6,6 @@ export type Message = { id: string; role: 'user' | 'ai'; text: string; character
 type AIMessageResult = {
   text: string;
   characterName?: string;
-  housePoints?: { gryffindor: number; hufflepuff: number; ravenclaw: number; slytherin: number };
-  gameState?: { week: number; day: number; playerHouse: string };
   narratorInjection?: string;
 };
 
@@ -68,10 +66,10 @@ export async function updateMessage(
 export async function sendMessage(
   messages: Message[],
   userName: string,
-  house: string = '',
+  _house: string = '',
   sessionId: string = '',
   characterProfile: any = null,
-  playerAttraction: string = 'Her ikisi',
+  _playerAttraction: string = '',
 ): Promise<AIMessageResult> {
   try {
     const history: ApiMessage[] = messages
@@ -106,7 +104,6 @@ export async function sendMessage(
 
     const contentType = response.headers.get('content-type') || '';
 
-    // Supports both JSON and SSE-style text responses.
     if (contentType.includes('application/json')) {
       const data = (await response.json()) as ChatApiResponse;
       const text = data.response || data.text || '';
@@ -119,15 +116,7 @@ export async function sendMessage(
     const raw = await response.text();
     let assembled = '';
     let characterName = '';
-    let housePoints: { gryffindor: number; hufflepuff: number; ravenclaw: number; slytherin: number } | undefined;
-    let gameState: { week: number; day: number; playerHouse: string } | undefined;
     let narratorInjection: string | undefined;
-    let simulationParams: {
-      session_id: string;
-      player_house: string;
-      week: number;
-      day: number;
-    } | undefined;
 
     for (const line of raw.split('\n')) {
       if (!line.startsWith('data: ')) {
@@ -144,19 +133,9 @@ export async function sendMessage(
           type?: string;
           text?: string;
           character_name?: string;
-          house_points?: any;
-          game_state?: any;
           narrator_injection?: string;
-          simulation_params?: {
-            session_id: string;
-            player_house: string;
-            week: number;
-            day: number;
-          };
         };
         if (parsed.type === 'meta') {
-          housePoints = parsed.house_points;
-          gameState = parsed.game_state;
           narratorInjection = parsed.narrator_injection;
         } else if (parsed.type === 'chunk' && parsed.text) {
           assembled += parsed.text;
@@ -164,48 +143,9 @@ export async function sendMessage(
           if (parsed.character_name) {
             characterName = parsed.character_name;
           }
-          if (parsed.house_points) {
-            housePoints = parsed.house_points;
-          }
-
-          if (parsed.simulation_params) {
-            simulationParams = parsed.simulation_params;
-          }
         }
       } catch {
         // Ignore malformed SSE chunks.
-      }
-    }
-
-    if (simulationParams) {
-      const sp = simulationParams;
-      try {
-        const simRes = await fetch(`${API_BASE}/run-simulation`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            session_id: sp.session_id,
-            player_house: sp.player_house,
-            week: sp.week,
-            day: sp.day,
-            ai_response: assembled,
-            player_name: userName,
-            player_attraction: playerAttraction,
-            conversation: messages.slice(-10).map((m) => ({
-              role: m.role === 'ai' ? 'assistant' : 'user',
-              content: m.text || '',
-            })),
-          }),
-        });
-        const data = await simRes.json();
-        if (data.house_points) {
-          housePoints = data.house_points;
-        }
-        if (data.surprise_event) {
-          narratorInjection = (narratorInjection || '') + '\n' + data.surprise_event;
-        }
-      } catch {
-        // Simulation optional — chat response still valid.
       }
     }
 
@@ -213,7 +153,7 @@ export async function sendMessage(
       throw new Error('Empty streaming response from AI API');
     }
 
-    return { text: assembled, characterName: characterName || undefined, housePoints, gameState, narratorInjection };
+    return { text: assembled, characterName: characterName || undefined, narratorInjection };
   } catch (error) {
     console.error('sendMessage failed:', error);
     throw error;

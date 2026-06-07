@@ -25,7 +25,6 @@ export type Character = {
   sessionId: string;
   createdAt: string;
   attraction?: string;
-  wand?: string;
 };
 
 export type AppContextType = {
@@ -38,10 +37,6 @@ export type AppContextType = {
   setMessages: (msgs: Message[] | ((prev: Message[]) => Message[])) => void;
   isLoading: boolean;
   setIsLoading: (val: boolean) => void;
-  housePoints: { gryffindor: number; hufflepuff: number; ravenclaw: number; slytherin: number };
-  gameState: { week: number; day: number; playerHouse: string } | null;
-  setHousePoints: (p: any) => void;
-  setGameState: (s: any) => void;
   language: Language;
   setLanguage: (lang: Language) => void;
 };
@@ -69,11 +64,10 @@ export function mapDbCharacterToCharacter(row: Record<string, unknown>): Charact
     fear: String(row.fear || ''),
     hobby: String(row.hobby || ''),
     secretTrait: String(row.secret_trait || row.secretTrait || ''),
-    house: String(row.player_house || row.house || ''),
+    house: String(row.player_house || row.house || 'valdenmoor'),
     sessionId: String(row.session_id || row.sessionId || ''),
     createdAt: String(row.created_at || row.createdAt || new Date().toISOString()),
     attraction: row.attraction ? String(row.attraction) : undefined,
-    wand: row.wand ? String(row.wand) : undefined,
   };
 }
 
@@ -134,10 +128,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [activeCharacter]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [housePoints, setHousePoints] = useState<{ gryffindor: number; hufflepuff: number; ravenclaw: number; slytherin: number }>(
-    { gryffindor: 0, hufflepuff: 0, ravenclaw: 0, slytherin: 0 }
-  );
-  const [gameState, setGameState] = useState<{ week: number; day: number; playerHouse: string } | null>(null);
   const [language, setLanguage] = useState<Language>(() => {
     return (localStorage.getItem('hp_language') as Language) || 'tr';
   });
@@ -183,10 +173,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setMessages,
         isLoading,
         setIsLoading,
-        housePoints,
-        gameState,
-        setHousePoints,
-        setGameState,
         language,
         setLanguage: handleSetLanguage,
       }}
