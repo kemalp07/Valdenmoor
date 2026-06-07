@@ -89,22 +89,8 @@ def get_relationships(session_id: str) -> dict:
 
 
 def update_relationship_type(session_id: str, character_name: str, new_type: str):
-    """İlişki tipini güncelle."""
-    if not supabase:
-        return
-    try:
-        supabase.table("character_relationships").upsert(
-            {
-                "session_id": session_id,
-                "character_name": character_name,
-                "relationship_type": new_type,
-                "updated_at": datetime.utcnow().isoformat(),
-            },
-            on_conflict="session_id,character_name",
-        ).execute()
-        logger.info(f"[{session_id}] {character_name} relationship_type → {new_type}")
-    except Exception as e:
-        logger.error(f"update_relationship_type error: {e}")
+    """Romantik ilişki bayrağı — Valdenmoor'da loyalty skoru üzerinden yönetilir."""
+    logger.info(f"[{session_id}] {character_name} relationship_type → {new_type} (loyalty tabanlı)")
 
 
 def update_relationship(session_id: str, character_name: str, delta: int, reason: str):
@@ -245,8 +231,8 @@ Romantik ilgi örnekleri: aşık olduğunu söylemek, öpmek istemek, el tutmak,
 KONUŞMA:
 {conv_text}
 
-SADECE JSON döndür:
-{{"romance_triggered": "Hermione Granger"}}
+SADECE JSON döndür (snake_case character_id kullan):
+{{"romance_triggered": "princess_elowen"}}
 veya
 {{"romance_triggered": null}}"""
 

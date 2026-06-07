@@ -172,8 +172,6 @@ def _format_character_profile(user_name: str, character_profile: dict) -> str:
         f"- Hobisi: {character_profile.get('hobby', '')}",
         f"- Gizli özellik: {character_profile.get('secretTrait', '')}",
     ]
-    if character_profile.get("wand"):
-        lines.append(f"- Asası: {character_profile.get('wand')}")
     return "\n".join(lines)
 
 

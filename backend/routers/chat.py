@@ -10,8 +10,6 @@ from services.prompt_builder import build_prompt
 from services.memory_service import generate_summary, get_memories, maybe_summarize_and_compress, save_memory
 from services.vertex_ai import stream_vertex_ai
 from services.house_points_service import (
-    get_house_points,
-    get_points_floor_info,
     get_game_state,
     check_inactivity_advance,
     build_narrator_day_message,
@@ -20,12 +18,15 @@ from services.house_points_service import (
     increment_message_count,
     check_sleep_trigger,
     get_message_count,
-    get_todays_schedule,
     get_location,
-    get_day_name,
-    localize_subject,
 )
-from services.world_simulation import run_point_simulation, extract_time_from_response, extract_inventory_and_location
+from services.world_simulation import (
+    run_point_simulation,
+    extract_time_from_response,
+    extract_inventory_and_location,
+    apply_passive_decay,
+    check_world_events,
+)
 from services.relationship_service import analyze_relationship_changes
 from db.supabase_client import insert_message, supabase
 import traceback
@@ -39,6 +40,7 @@ _CHARACTER_ID_MAP = {
     "hogwarts-narrator": "00000000-0000-0000-0000-000000000002",
 }
 logger = logging.getLogger(__name__)
+_DEBUG_CHAT = os.getenv("DEBUG_CHAT", "").lower() in ("1", "true", "yes")
 
 MAX_HISTORY_MESSAGES = 14
 
@@ -387,10 +389,13 @@ async def chat_test(request: Request):
     body = await request.json()
     message = body.get("message", "")
     session_id = body.get("session_id") or str(uuid.uuid4())
-    user_name = body.get("user_name") or "Öğrenci"
-    
+    user_name = body.get("user_name") or "Hükümdar"
+
     if message == "":
-        mock_response = f"Merhaba {user_name}! Hogwarts'a hoş geldin. Sihir ve macera seni bekliyor. Neler yapmak istersin?"
+        mock_response = (
+            f"Merhaba {user_name}! Valdenmoor krallığına hoş geldin. "
+            "Taht odasında vezir Aldric Vane seni bekliyor."
+        )
     else:
         mock_response = f"Yaptığın harita çok ilginç. Hemen yanıt verebileceğim: '{message}' - ancak şu anda Vertex AI bağlantıda sorun yaşanıyor. Lütfen servis hesabı JSON ve proje ayarlarını kontrol et. :)"
     
@@ -404,9 +409,9 @@ async def chat_endpoint(request: Request):
     Request body accepted fields (defaults applied):
     - message: str (required)
     - session_id: str (optional)
-    - character_id: str (default: "hogwarts-narrator")
-    - location_id: str (default: "great-hall")
-    - user_name: str (default: "Öğrenci")
+    - character_id: str (default: "valdenmoor-narrator")
+    - location_id: str (default: "throne_room")
+    - user_name: str (default: "Hükümdar")
     - history: list[dict] (optional) prior turns [{"role": "user"|"assistant", "content": "..."}]
     """
     body = await request.json()
@@ -415,8 +420,8 @@ async def chat_endpoint(request: Request):
     session_id = body.get("session_id") or str(uuid.uuid4())
     _raw_cid = body.get("character_id") or "valdenmoor-narrator"
     character_id = _CHARACTER_ID_MAP.get(_raw_cid, _raw_cid)
-    location_id = body.get("location_id") or "great-hall"
-    user_name = body.get("user_name") or "Öğrenci"
+    location_id = body.get("location_id") or "throne_room"
+    user_name = body.get("user_name") or "Hükümdar"
     character_profile = body.get("character_profile")
     language = body.get("language", "tr")
 
@@ -444,8 +449,6 @@ async def chat_endpoint(request: Request):
     narrator_injection = None
     if game_state.get("current_hour") == 8 or sleep_triggered or day_advanced:
         narrator_injection = build_narrator_day_message(session_id)
-
-    house_points = get_house_points(session_id)
 
     # allow empty message for initial opening prompts; message may be empty string
 
@@ -487,19 +490,26 @@ async def chat_endpoint(request: Request):
         "conversation": conversation_for_memory,
     }
 
-    async def persist_memory_after_response(sid: str, char_id: str, state: dict):
+    player_attraction = (profile.get("attraction") or "Her ikisi")
+
+    async def after_chat_response(sid: str, char_id: str, state: dict, ruler_name: str, attraction: str):
         full_text = str(state.get("full_text") or "").strip()
-        if len(full_text) <= 200:
-            return
+        conversation = list(state.get("conversation") or [])
+        if full_text:
+            conversation.append({"role": "assistant", "content": full_text})
 
-        conversation_for_summary = list(state.get("conversation") or [])
-        conversation_for_summary.append({"role": "assistant", "content": full_text})
+        if len(full_text) > 200:
+            summary = await generate_summary(conversation)
+            if summary.strip():
+                await save_memory(sid, char_id, summary.strip())
+            await maybe_summarize_and_compress(sid, char_id, conversation)
 
-        summary = await generate_summary(conversation_for_summary)
-        if summary.strip():
-            await save_memory(sid, char_id, summary.strip())
+        check_world_events(sid)
 
-        await maybe_summarize_and_compress(sid, char_id, conversation_for_summary)
+        try:
+            await analyze_relationship_changes(sid, conversation, ruler_name, attraction)
+        except Exception as e:
+            logger.error(f"Relationship analysis error: {e}")
 
     async def save_messages(sid: str, user_text: str, assistant_text: str):
         try:
@@ -521,14 +531,6 @@ async def chat_endpoint(request: Request):
         meta = json.dumps({
             "type": "meta",
             "session_id": session_id,
-            "character_name": "",
-            "house_points": house_points,
-            "game_state": {
-                "week": game_state.get("current_week", 1),
-                "day": game_state.get("current_day", 1),
-                "player_house": game_state.get("player_house", "gryffindor"),
-                "current_hour": game_state.get("current_hour", 8),
-            },
             "location": get_location(session_id),
             "narrator_injection": narrator_injection,
         })
@@ -538,9 +540,8 @@ async def chat_endpoint(request: Request):
             system_prompt = ""
             if messages_for_model and messages_for_model[0].get("role") == "system":
                 system_prompt = messages_for_model[0].get("content", "")
-            print("=== SYSTEM PROMPT (ilk 2000) ===", flush=True)
-            print(system_prompt[:2000], flush=True)
-            print("=== SYSTEM PROMPT SONU ===", flush=True)
+            if _DEBUG_CHAT:
+                logger.debug("SYSTEM PROMPT (ilk 2000): %s", system_prompt[:2000])
             async for chunk in stream_vertex_ai(messages_for_model, model=model):
                 full_text += chunk
                 out_buf += chunk
@@ -574,18 +575,12 @@ async def chat_endpoint(request: Request):
             yield f"data: {payload}\n\n"
 
         memory_state["full_text"] = full_text
-        print("=== AI FULL RESPONSE ===", flush=True)
-        print(full_text[:1000], flush=True)
-        print("=== AI RESPONSE SONU ===", flush=True)
+        if _DEBUG_CHAT:
+            logger.debug("AI FULL RESPONSE (ilk 1000): %s", full_text[:1000])
         char_name = detect_character(full_text)
         await save_messages(session_id, message, full_text)
 
-        # Mevcut puanı gönder — frontend /run-simulation sonrası fetchHousePoints ile günceller
-        try:
-            _final_points = get_house_points(session_id)
-        except Exception:
-            _final_points = house_points
-
+        apply_passive_decay(session_id)
         try:
             _final_stats = _ensure_game_stats(session_id)
         except Exception:
@@ -594,20 +589,20 @@ async def chat_endpoint(request: Request):
         done = json.dumps({
             "type": "done",
             "character_name": char_name,
-            "house_points": _final_points,
             "location": get_location(session_id),
             "game_stats": _final_stats,
-            "simulation_params": {
-                "session_id": session_id,
-                "player_house": game_state.get("player_house", "gryffindor"),
-                "week": game_state.get("current_week", 1),
-                "day": game_state.get("current_day", 1),
-            },
         })
         yield f"data: {done}\n\n"
 
     background_tasks = BackgroundTasks()
-    background_tasks.add_task(persist_memory_after_response, session_id, character_id, memory_state)
+    background_tasks.add_task(
+        after_chat_response,
+        session_id,
+        character_id,
+        memory_state,
+        user_name,
+        player_attraction,
+    )
 
     return StreamingResponse(
         generate(),
@@ -626,21 +621,20 @@ async def run_simulation_endpoint(request: Request):
     session_id = body.get("session_id", "")
     _raw_cid = body.get("character_id") or "valdenmoor-narrator"
     character_id = _CHARACTER_ID_MAP.get(_raw_cid, _raw_cid)
-    player_house = body.get("player_house", "gryffindor")
     week = int(body.get("week", 1))
     day = int(body.get("day", 1))
     conversation = body.get("conversation", [])
-    user_name = body.get("user_name", "Öğrenci")
+    user_name = body.get("user_name", "Hükümdar")
     player_attraction = body.get("player_attraction", "Her ikisi")
     ai_response = body.get("ai_response", "")
 
     if not session_id:
         return JSONResponse(content={"status": "error", "detail": "session_id required"})
 
-    logger.info(f"[{session_id}] Starting simulation house={player_house} w={week} d={day}")
-    sim_result = {"missed": [], "surprise": None}
+    logger.info(f"[{session_id}] Starting world simulation w={week} d={day}")
+    sim_result = {"missed": [], "surprise": None, "narrator_injection": None}
     try:
-        sim_result = await run_point_simulation(session_id, conversation, player_house, week, day)
+        sim_result = await run_point_simulation(session_id, conversation, "", week, day)
         logger.info(f"[{session_id}] Simulation complete")
     except Exception as e:
         logger.error(f"Simulation error: {e}", exc_info=True)
@@ -688,26 +682,19 @@ async def run_simulation_endpoint(request: Request):
     except Exception as e:
         logger.error(f"Relationship analysis error: {e}")
 
-    points = get_house_points(session_id)
     state = get_game_state(session_id)
-    missed_classes = sim_result.get("missed") or []
-    missed_text = ""
-    if missed_classes:
-        parts = [f"{m['subject']} ({m['teacher']}) -{m['penalty']} puan" for m in missed_classes]
-        missed_text = "Kaçırılan dersler: " + ", ".join(parts)
+    stats = _ensure_game_stats(session_id)
 
     return JSONResponse(content={
         "status": "ok",
-        "house_points": points,
         "location": get_location(session_id),
+        "game_stats": stats,
         "game_state": {
             "week": state.get("current_week", 1),
             "day": state.get("current_day", 1),
-            "player_house": state.get("player_house", "gryffindor"),
             "current_hour": state.get("current_hour", 8),
         },
-        "surprise_event": sim_result.get("surprise"),
-        "missed_classes": missed_text,
+        "narrator_injection": sim_result.get("narrator_injection"),
     })
 
 
@@ -763,118 +750,31 @@ async def schedule_endpoint(
     session_id: str = Query(..., min_length=1),
     language: str = Query("tr"),
 ):
-    """Bugünün ve yarının ders programını döner."""
-    state = get_game_state(session_id)
-    week = state.get("current_week", 1)
-    day = state.get("current_day", 1)
-    hour = state.get("current_hour", 8)
-
-    tomorrow_day = day + 1
-    tomorrow_week = week
-    if tomorrow_day > 7:
-        tomorrow_day = 1
-        tomorrow_week += 1
-
-    today_schedule = get_todays_schedule(week, day)
-    tomorrow_schedule = get_todays_schedule(tomorrow_week, tomorrow_day)
-
-    def build_classes(schedule, current_hour, is_today):
-        classes = []
-        for cls in schedule:
-            cls_hour = int(cls["time"].split(":")[0])
-            if is_today:
-                if cls_hour < current_hour:
-                    status = "done"
-                elif cls_hour == current_hour:
-                    status = "active"
-                elif cls_hour <= current_hour + 2:
-                    status = "upcoming"
-                else:
-                    status = "future"
-            else:
-                status = "future"
-            classes.append({
-                "time": cls["time"],
-                "subject": localize_subject(cls["subject"], language),
-                "teacher": cls.get("teacher", ""),
-                "location": cls.get("location", ""),
-                "status": status,
-                "penalty": abs(cls["house_penalty"]["delta"]) if cls.get("house_penalty") else 0,
-            })
-        return classes
-
-    return JSONResponse(content={
-        "week": week,
-        "day": day,
-        "day_name": get_day_name(day, language),
-        "hour": hour,
-        "location": state.get("current_location", "gryffindor_tower"),
-        "schedule": build_classes(today_schedule, hour, True),
-        "tomorrow_day": tomorrow_day,
-        "tomorrow_day_name": get_day_name(tomorrow_day, language),
-        "tomorrow_schedule": build_classes(tomorrow_schedule, hour, False),
-    })
+    """Deprecated — Hogwarts ders programı Valdenmoor'da kullanılmıyor."""
+    return JSONResponse(content={"status": "deprecated", "schedule": [], "session_id": session_id})
 
 
 @router.get("/house-points")
 async def house_points_endpoint(session_id: str = Query(..., min_length=1)):
-    """Anlık ev puanlarını döner. Frontend polling için."""
-    points = get_house_points(session_id)
-    state = get_game_state(session_id)
-    floor_info = get_points_floor_info(session_id)
-    return JSONResponse(content={
-        "points": points,
-        "minimum_floor": floor_info["minimum_floor"],
-        "points_floor_started_at": floor_info["points_floor_started_at"],
-        "game_state": {
-            "week": state.get("current_week", 1),
-            "day": state.get("current_day", 1),
-            "player_house": state.get("player_house", "gryffindor"),
-        }
-    })
+    """Deprecated — ev puanları yerine /game-stats kullan."""
+    stats = _ensure_game_stats(session_id)
+    return JSONResponse(content={"status": "deprecated", "game_stats": stats})
 
 
 @router.post("/advance-day")
 async def advance_day_endpoint(request: Request):
-    """Manuel gün geçişi. Kullanıcı 'uyumak' istediğinde çağrılır."""
+    """Deprecated — Valdenmoor'da gün döngüsü henüz aktif değil."""
     body = await request.json()
     session_id = body.get("session_id", "")
     if not session_id:
         raise HTTPException(status_code=400, detail="session_id gerekli")
-    new_state = advance_day(session_id)
-    narrator_msg = build_narrator_day_message(session_id)
-    points = get_house_points(session_id)
-    return JSONResponse(content={
-        "game_state": new_state,
-        "house_points": points,
-        "narrator_message": narrator_msg,
-    })
+    return JSONResponse(content={"status": "deprecated", "game_state": get_game_state(session_id)})
 
 
 @router.post("/set-house")
 async def set_house_endpoint(request: Request):
-    body = await request.json()
-    session_id = body.get("session_id", "")
-    house_raw = body.get("house", "")
-    house = house_raw.lower().strip()  # "Gryffindor" → "gryffindor"
-
-    valid = ["gryffindor", "hufflepuff", "ravenclaw", "slytherin"]
-    if not session_id or house not in valid:
-        raise HTTPException(status_code=400, detail=f"Geçersiz ev: '{house_raw}'")
-
-    if supabase:
-        supabase.table("game_state").upsert(
-            {
-                "session_id": session_id,
-                "player_house": house,
-                "current_week": 1,
-                "current_day": 7,
-                "current_hour": 20,
-                "daily_message_count": 0,
-            },
-            on_conflict="session_id"
-        ).execute()
-    return {"status": "ok", "house": house}
+    """Deprecated — Valdenmoor'da ev seçimi yok."""
+    raise HTTPException(status_code=410, detail="Valdenmoor'da ev seçimi bulunmuyor")
 
 
 @router.post("/save-character")
@@ -912,8 +812,6 @@ async def save_character(request: Request):
                 "hobby": character.get("hobby", ""),
                 "secret_trait": character.get("secretTrait", ""),
                 "attraction": character.get("attraction", ""),
-                "wand": character.get("wand", ""),
-                "player_house": character.get("house", ""),
                 "personality": character.get("traits", [" "])[0],
                 "speech_style": "player",
                 "base_prompt": "player_character",

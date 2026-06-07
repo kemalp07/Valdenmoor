@@ -1,20 +1,18 @@
-"""House points service — cleared for new game system."""
-
-HOUSES = ["gryffindor", "hufflepuff", "ravenclaw", "slytherin"]
+"""Game state service — Valdenmoor session time/location stubs."""
 
 _DEFAULT_GAME_STATE = {
     "current_week": 1,
     "current_day": 1,
     "current_hour": 8,
-    "player_house": "gryffindor",
     "daily_message_count": 0,
     "last_activity_at": None,
-    "current_location": "unknown",
+    "current_location": "throne_room",
 }
 
 
 def get_house_points(session_id: str) -> dict:
-    return {h: 0 for h in HOUSES}
+    """Deprecated Hogwarts API — returns empty dict for backward compatibility."""
+    return {}
 
 
 def get_points_floor_info(session_id: str) -> dict:
@@ -70,7 +68,7 @@ def build_missed_class_context(missed: list, language: str = "tr") -> str:
 
 
 def get_location(session_id: str) -> str:
-    return "unknown"
+    return "throne_room"
 
 
 def get_day_name(day: int, language: str = "tr") -> str:
