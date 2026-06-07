@@ -3,14 +3,11 @@ import { API_BASE } from '../config/api';
 
 export type Message = { id: string; role: 'user' | 'ai'; text: string; characterName?: string };
 
-export type ActionButton = { action: string; label: string };
-
 export type AIMessageResult = {
   text: string;
   characterName?: string;
   narratorInjection?: string;
   location?: string;
-  suggestedButtons?: ActionButton[];
   userMessageId?: string;
   assistantMessageId?: string;
 };
@@ -83,6 +80,7 @@ export async function sendMessage(
   sessionId: string = '',
   characterProfile: any = null,
   _playerAttraction: string = '',
+  options?: { onChunk?: (text: string) => void },
 ): Promise<AIMessageResult> {
   try {
     const history: ApiMessage[] = messages
@@ -126,24 +124,27 @@ export async function sendMessage(
       return { text, characterName: data.character_name, location: data.location };
     }
 
-    const raw = await response.text();
+    if (!response.body) {
+      throw new Error('Streaming response body is empty');
+    }
+
+    // Gerçek SSE streaming — ReadableStream ile oku
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
     let assembled = '';
     let characterName = '';
     let narratorInjection: string | undefined;
     let location: string | undefined;
-    let suggestedButtons: ActionButton[] | undefined;
     let userMessageId: string | undefined;
     let assistantMessageId: string | undefined;
+    let buffer = '';
 
-    for (const line of raw.split('\n')) {
-      if (!line.startsWith('data: ')) {
-        continue;
-      }
+    const onChunk = options?.onChunk;
 
+    const parseSseLine = (line: string) => {
+      if (!line.startsWith('data: ')) return;
       const dataPart = line.slice(6).trim();
-      if (!dataPart) {
-        continue;
-      }
+      if (!dataPart) return;
 
       try {
         const parsed = JSON.parse(dataPart) as {
@@ -152,40 +153,42 @@ export async function sendMessage(
           character_name?: string;
           narrator_injection?: string;
           location?: string;
-          suggested_buttons?: ActionButton[];
           user_message_id?: string;
           assistant_message_id?: string;
         };
         if (parsed.type === 'meta') {
           narratorInjection = parsed.narrator_injection;
-          if (parsed.location) {
-            location = parsed.location;
-          }
-          if (parsed.suggested_buttons && parsed.suggested_buttons.length > 0) {
-            suggestedButtons = parsed.suggested_buttons;
-          }
+          if (parsed.location) location = parsed.location;
         } else if (parsed.type === 'chunk' && parsed.text) {
           assembled += parsed.text;
+          if (onChunk) onChunk(assembled);
         } else if (parsed.type === 'done') {
-          if (parsed.character_name) {
-            characterName = parsed.character_name;
-          }
-          if (parsed.location) {
-            location = parsed.location;
-          }
-          if (parsed.suggested_buttons && parsed.suggested_buttons.length > 0) {
-            suggestedButtons = parsed.suggested_buttons;
-          }
-          if (parsed.user_message_id) {
-            userMessageId = parsed.user_message_id;
-          }
-          if (parsed.assistant_message_id) {
-            assistantMessageId = parsed.assistant_message_id;
-          }
+          if (parsed.character_name) characterName = parsed.character_name;
+          if (parsed.location) location = parsed.location;
+          if (parsed.user_message_id) userMessageId = parsed.user_message_id;
+          if (parsed.assistant_message_id) assistantMessageId = parsed.assistant_message_id;
         }
       } catch {
         // Ignore malformed SSE chunks.
       }
+    };
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        parseSseLine(line);
+      }
+    }
+
+    buffer += decoder.decode();
+    if (buffer.trim()) {
+      parseSseLine(buffer.trim());
     }
 
     if (!assembled) {
@@ -197,7 +200,6 @@ export async function sendMessage(
       characterName: characterName || undefined,
       narratorInjection,
       location,
-      suggestedButtons,
       userMessageId,
       assistantMessageId,
     };
