@@ -177,6 +177,145 @@ function isEmptyUserMessage(item: Message): boolean {
   return item.role === 'user' && (!item.text || item.text.trim() === '');
 }
 
+function StatsBar({ sessionId }: { sessionId: string }) {
+  const [stats, setStats] = React.useState<Record<string, number> | null>(null);
+
+  React.useEffect(() => {
+    if (!sessionId) return;
+    const fetchStats = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/game-stats?session_id=${sessionId}`);
+        const data = await res.json();
+        if (data.stats) setStats(data.stats);
+      } catch {}
+    };
+    fetchStats();
+    const interval = setInterval(fetchStats, 8000);
+    return () => clearInterval(interval);
+  }, [sessionId]);
+
+  if (!stats) return null;
+
+  const items = [
+    {
+      key: 'treasury',
+      icon: '💰',
+      value: stats.treasury ?? 0,
+      max: 1000,
+      critical: 150,
+      warning: 300,
+    },
+    {
+      key: 'army_morale',
+      icon: '⚔️',
+      value: stats.army_morale ?? 0,
+      max: 100,
+      critical: 20,
+      warning: 40,
+    },
+    {
+      key: 'public_support',
+      icon: '👥',
+      value: stats.public_support ?? 0,
+      max: 100,
+      critical: 20,
+      warning: 35,
+    },
+    {
+      key: 'prestige',
+      icon: '👑',
+      value: stats.prestige ?? 0,
+      max: 100,
+      critical: 15,
+      warning: 30,
+    },
+    {
+      key: 'dravkor_threat',
+      icon: '🗡️',
+      value: stats.dravkor_threat ?? 0,
+      max: 100,
+      critical: 80,
+      warning: 65,
+      inverted: true,
+    },
+  ];
+
+  return (
+    <View style={statsBarStyles.container}>
+      {items.map((item) => {
+        const pct = Math.round((item.value / item.max) * 100);
+        const isCritical = item.inverted
+          ? item.value >= item.critical
+          : item.value <= item.critical;
+        const isWarning = item.inverted
+          ? item.value >= item.warning
+          : item.value <= item.warning;
+        const color = isCritical ? '#e74c3c' : isWarning ? '#e67e22' : '#c9a84c';
+
+        return (
+          <View key={item.key} style={statsBarStyles.item}>
+            <Text style={statsBarStyles.icon}>{item.icon}</Text>
+            <View style={statsBarStyles.barBg}>
+              <View
+                style={[
+                  statsBarStyles.barFill,
+                  {
+                    width: `${item.inverted ? 100 - pct : pct}%` as any,
+                    backgroundColor: color,
+                  },
+                ]}
+              />
+            </View>
+            <Text style={[statsBarStyles.value, { color }]}>
+              {item.key === 'treasury' ? item.value : `${pct}%`}
+            </Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+const statsBarStyles = StyleSheet.create({
+  container: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(201,168,76,0.2)',
+    gap: 8,
+  },
+  item: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 4,
+  },
+  icon: {
+    fontSize: 11,
+  },
+  barBg: {
+    flex: 1,
+    height: 4,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  barFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  value: {
+    fontSize: 9,
+    fontFamily: Platform.OS === 'web' ? 'Cinzel, serif' : undefined,
+    minWidth: 28,
+    textAlign: 'right',
+  },
+});
+
 const TypingIndicator = () => {
   const dot1 = useRef(new Animated.Value(0.3)).current;
   const dot2 = useRef(new Animated.Value(0.3)).current;
@@ -908,6 +1047,8 @@ export const ChatScreen = ({ navigation }: any) => {
                 <Text style={styles.headerSubtitle}>{t(language, 'narratorSubtitle')}</Text>
               </View>
             </View>
+
+            <StatsBar sessionId={sessionId} />
 
             <FlatList
               ref={flatListRef}

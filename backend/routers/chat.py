@@ -935,6 +935,13 @@ async def update_stats(request: Request):
     return JSONResponse(content={"status": "ok", "stats": updated})
 
 
+@router.get("/game-stats")
+async def get_game_stats_endpoint(session_id: str = Query(..., min_length=1)):
+    """Mevcut oyun istatistiklerini döner."""
+    stats = _ensure_game_stats(session_id)
+    return JSONResponse(content={"status": "ok", "stats": stats})
+
+
 @router.get("/load-characters")
 async def load_characters(session_id: str = Query(...)):
     if not supabase:
