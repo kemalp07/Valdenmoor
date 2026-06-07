@@ -3,6 +3,7 @@ import {
   StyleSheet,
   Text,
   View,
+  Image,
   Pressable,
   SafeAreaView,
   Platform,
@@ -102,7 +103,11 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation }
     <SafeAreaView style={styles.container}>
       <View style={styles.backgroundImage}>
         <View style={styles.content}>
-        <Text style={styles.crestEmoji}>👑</Text>
+        <Image
+          source={require('../../assets/valdenmoor_crest.png')}
+          style={styles.crestImage}
+          resizeMode="contain"
+        />
 
         <View style={styles.languageToggle}>
           <Pressable
@@ -212,8 +217,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 24,
   },
-  crestEmoji: {
-    fontSize: 72,
+  crestImage: {
+    width: 120,
+    height: 120,
     marginBottom: 24,
   },
   nameInput: {

@@ -5,7 +5,7 @@
 body {
   background: #f6f7fb;
   background-image:
-    url("./assets/hogwarts_clean.png"),
+    url("./assets/backgrounds/castle_exterior.png"),
     radial-gradient(ellipse at 20% 20%, rgba(255, 255, 255, 1) 0%, rgba(246, 247, 251, 0) 55%),
     radial-gradient(ellipse at 80% 30%, rgba(255, 255, 255, 1) 0%, rgba(246, 247, 251, 0) 55%),
     radial-gradient(ellipse at 50% 90%, rgba(235, 240, 255, 0.8) 0%, rgba(246, 247, 251, 0) 60%);

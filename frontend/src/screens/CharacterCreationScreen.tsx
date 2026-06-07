@@ -220,7 +220,7 @@ export const CharacterCreationScreen: React.FC<CharacterCreationScreenProps> = (
   return (
     <SafeAreaView style={styles.container}>
       <ImageBackground
-        source={require('../../assets/hogwarts_clean.png')}
+        source={require('../../assets/backgrounds/castle_exterior.png')}
         style={styles.backgroundImage}
         imageStyle={{ opacity: 0.4 }}
       >

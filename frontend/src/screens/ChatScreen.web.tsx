@@ -27,9 +27,9 @@ import { getInputTips, getTagNames, t, Language } from '../i18n/translations';
 import { localizeScheduleData } from '../i18n/schedule';
 
 const NARRATOR_NAME = 'Valdenmoor';
+const NARRATOR_CREST = require('../../assets/valdenmoor_crest.png');
 const HOUSE_POINTS_POLL_MS = 3000;
 const HOUSE_POINTS_REFRESH_DELAYS = [1500, 3500, 6000, 10000, 18000] as const;
-const NARRATOR_SYMBOL = '👑';
 const HOUSES = ['Gryffindor', 'Hufflepuff', 'Ravenclaw', 'Slytherin'] as const;
 const MIN_INPUT_HEIGHT = 36;
 const MAX_INPUT_HEIGHT = 100;
@@ -42,112 +42,69 @@ const WEB_INPUT_RESET =
     : undefined;
 
 const LOCATION_BACKGROUNDS: Record<string, any> = {
-  gryffindor_tower: require('../../assets/backgrounds/gryffindor_tower.png'),
+  throne_room: require('../../assets/backgrounds/throne_room.png'),
   great_hall: require('../../assets/backgrounds/great_hall.png'),
-  library: require('../../assets/backgrounds/library.png'),
-  dungeons: require('../../assets/backgrounds/dungeons.png'),
-  quidditch_field: require('../../assets/backgrounds/quidditch_field.png'),
-  corridor: require('../../assets/backgrounds/corridor.png'),
-  classroom: require('../../assets/backgrounds/classroom.png'),
-  owlery: require('../../assets/backgrounds/owlery.png'),
-  hospital_wing: require('../../assets/backgrounds/hospital_wing.png'),
-  forbidden_forest: require('../../assets/backgrounds/forbidden_forest.png'),
-  hogsmeade: require('../../assets/backgrounds/hogsmeade.png'),
-  astronomy_tower: require('../../assets/backgrounds/astronomy_tower.png'),
-  potions_classroom: require('../../assets/backgrounds/potions_classroom.png'),
-  transfiguration_classroom: require('../../assets/backgrounds/transfiguration_classroom.png'),
-  charms_classroom: require('../../assets/backgrounds/charms_classroom.png'),
-  herbology_greenhouse: require('../../assets/backgrounds/herbology_greenhouse.png'),
-  defense_classroom: require('../../assets/backgrounds/defense_classroom.png'),
-  great_lake: require('../../assets/backgrounds/great_lake.png'),
-  slytherin_common_room: require('../../assets/backgrounds/slytherin_common_room.png'),
-  hufflepuff_common_room: require('../../assets/backgrounds/hufflepuff_common_room.png'),
-  ravenclaw_common_room: require('../../assets/backgrounds/ravenclaw_common_room.png'),
-  gryffindor_dormitory: require('../../assets/backgrounds/gryffindor_dormitory.png'),
-  slytherin_dormitory: require('../../assets/backgrounds/slytherin_dormitory.png'),
-  room_of_requirement: require('../../assets/backgrounds/room_of_requirement.png'),
+  war_room: require('../../assets/backgrounds/war_room.png'),
+  castle_corridor: require('../../assets/backgrounds/castle_corridor.png'),
+  castle_exterior: require('../../assets/backgrounds/castle_exterior.png'),
+  ashenmoor_market: require('../../assets/backgrounds/ashenmoor_market.png'),
+  ashenmoor_streets: require('../../assets/backgrounds/ashenmoor_streets.png'),
+  dawnhold_fortress: require('../../assets/backgrounds/dawnhold_fortress.png'),
+  varethis_harbor: require('../../assets/backgrounds/varethis_harbor.png'),
+  varethis_sea: require('../../assets/backgrounds/varethis_sea.png'),
+  throne_antechamber: require('../../assets/backgrounds/throne_antechamber.png'),
+  castle_dungeon: require('../../assets/backgrounds/castle_dungeon.png'),
+  castle_battlements: require('../../assets/backgrounds/castle_battlements.png'),
+  royal_chambers: require('../../assets/backgrounds/royal_chambers.png'),
+  forest_path: require('../../assets/backgrounds/forest_path.png'),
+  selmara_palace: require('../../assets/backgrounds/selmara_palace.png'),
+  kadir_bazaar: require('../../assets/backgrounds/kadir_bazaar.png'),
+  battlefield: require('../../assets/backgrounds/battlefield.png'),
+  council_chamber: require('../../assets/backgrounds/council_chamber.png'),
+  chapel: require('../../assets/backgrounds/chapel.png'),
 };
 
 const CHARACTER_AVATARS: Record<string, any> = {
-  NARRATOR: require('../../assets/characters/sorting_hat.png'),
-  'Harry Potter': require('../../assets/characters/harry.png'),
-  'Hermione Granger': require('../../assets/characters/hermione.png'),
-  'Ron Weasley': require('../../assets/characters/ron.png'),
-  'Severus Snape': require('../../assets/characters/snape.png'),
-  'Albus Dumbledore': require('../../assets/characters/dumbledore.png'),
-  'Draco Malfoy': require('../../assets/characters/draco.png'),
-  'Rubeus Hagrid': require('../../assets/characters/hagrid.png'),
-  'Minerva McGonagall': require('../../assets/characters/mcgonagall.png'),
-  'Dolores Umbridge': require('../../assets/characters/umbridge.png'),
-  'Luna Lovegood': require('../../assets/characters/luna.png'),
-  'Ginny Weasley': require('../../assets/characters/ginny.png'),
-  'Neville Longbottom': require('../../assets/characters/neville.png'),
-  'Voldemort': require('../../assets/characters/voldemort.png'),
-  'Bellatrix Lestrange': require('../../assets/characters/bellatrix.png'),
-  'Lucius Malfoy': require('../../assets/characters/lucius.png'),
-  'Cedric Diggory': require('../../assets/characters/cedric.png'),
-  'Fleur Delacour': require('../../assets/characters/fleur.png'),
-  'Sıralama Şapkası': require('../../assets/characters/sorting_hat.png'),
-  'Professor Trelawney': require('../../assets/characters/trelawney.png'),
-  'Oliver Wood': require('../../assets/characters/oliver_wood.png'),
-  'Gilderoy Lockhart': require('../../assets/characters/lockhart.png'),
+  NARRATOR: NARRATOR_CREST,
+  'Dük Malachar': require('../../assets/characters/duke_malachar.jpg'),
+  'General Harkon': require('../../assets/characters/general_harkon.jpg'),
+  'Kral Edwyn': require('../../assets/characters/king_edwyn.jpg'),
+  'Prenses Elowen': require('../../assets/characters/princess_elowen.jpg'),
+  'Prens Aldric': require('../../assets/characters/prince_aldric_selmara.jpg'),
+  'Sultan Rashid': require('../../assets/characters/sultan_rashid.jpg'),
+  'Elçi Zara': require('../../assets/characters/envoy_zara.jpg'),
+  'Lord Aldric Vane': require('../../assets/characters/aldric_vane.jpg'),
+  'Lord Harwin Sorn': require('../../assets/characters/harwin_sorn.jpg'),
+  'Lord Cerin Vane': require('../../assets/characters/cerin_vane.jpg'),
+  'Rahip Edran': require('../../assets/characters/rahip_edran.jpg'),
+  Mira: require('../../assets/characters/mira.jpg'),
+  'General Caelan Voss': require('../../assets/characters/caelan_voss.jpg'),
+  'Lord Commander Draven': require('../../assets/characters/draven.jpg'),
+  'Komutan Sera Ashford': require('../../assets/characters/sera_ashford.jpg'),
+  Tomas: require('../../assets/characters/tomas.jpg'),
+  Lena: require('../../assets/characters/lena.jpg'),
 };
 
 const TAG_AVATARS: Record<string, any> = {
-  'NARRATOR': require('../../assets/hogwarts_crest.png'),
-  'UNKNOWN': require('../../assets/characters/unknown.png'),
-  'SORTING_HAT': require('../../assets/characters/sorting_hat.png'),
-  'HARRY': require('../../assets/characters/harry.png'),
-  'HERMIONE': require('../../assets/characters/hermione.png'),
-  'RON': require('../../assets/characters/ron.png'),
-  'SNAPE': require('../../assets/characters/snape.png'),
-  'DUMBLEDORE': require('../../assets/characters/dumbledore.png'),
-  'DRACO': require('../../assets/characters/draco.png'),
-  'HAGRID': require('../../assets/characters/hagrid.png'),
-  'MCGONAGALL': require('../../assets/characters/mcgonagall.png'),
-  'UMBRIDGE': require('../../assets/characters/umbridge.png'),
-  'VOLDEMORT': require('../../assets/characters/voldemort.png'),
-  'NEVILLE': require('../../assets/characters/neville.png'),
-  'LUNA': require('../../assets/characters/luna.png'),
-  'GINNY': require('../../assets/characters/ginny.png'),
-  'FRED': require('../../assets/characters/fred.png'),
-  'GEORGE': require('../../assets/characters/george.png'),
-  'PERCY': require('../../assets/characters/percy.png'),
-  'OLIVER': require('../../assets/characters/oliver_wood.png'),
-  'CEDRIC': require('../../assets/characters/cedric.png'),
-  'FLEUR': require('../../assets/characters/fleur.png'),
-  'BELLATRIX': require('../../assets/characters/bellatrix.png'),
-  'LUCIUS': require('../../assets/characters/lucius.png'),
-  'LOCKHART': require('../../assets/characters/lockhart.png'),
-  'TRELAWNEY': require('../../assets/characters/trelawney.png'),
-  'DEAN': require('../../assets/characters/dean.png'),
-  'SEAMUS': require('../../assets/characters/seamus.png'),
-  'LAVENDER': require('../../assets/characters/lavender.png'),
-  'PARVATI': require('../../assets/characters/parvati.png'),
-  'PADMA': require('../../assets/characters/padma.png'),
-  'PANSY': require('../../assets/characters/pansy.png'),
-  'CRABBE': require('../../assets/characters/crabbe.png'),
-  'GOYLE': require('../../assets/characters/goyle.png'),
-  'BLAISE': require('../../assets/characters/blaise.png'),
-  'JUSTIN': require('../../assets/characters/justin.png'),
-  'HANNAH': require('../../assets/characters/hannah.png'),
-  'SUSAN': require('../../assets/characters/susan.png'),
-  'ERNIE': require('../../assets/characters/ernie.png'),
-  'TERRY': require('../../assets/characters/terry.png'),
-  'ANTHONY': require('../../assets/characters/anthony.png'),
-  'MANDY': require('../../assets/characters/mandy.png'),
-  'QUIRRELL': require('../../assets/characters/quirrell.png'),
-  'FLITWICK': require('../../assets/characters/flitwick.png'),
-  'SPROUT': require('../../assets/characters/sprout.png'),
-  'HOOCH': require('../../assets/characters/hooch.png'),
-  'FILCH': require('../../assets/characters/filch.png'),
-  'POMFREY': require('../../assets/characters/pomfrey.png'),
-  'ANGELINA': require('../../assets/characters/angelina.png'),
-  'ALICIA': require('../../assets/characters/alicia.png'),
-  'KATIE': require('../../assets/characters/katie.png'),
-  'LEE': require('../../assets/characters/lee.png'),
-  'NICK': require('../../assets/characters/nick.png'),
-  'PEEVES': require('../../assets/characters/peeves.png'),
+  NARRATOR: NARRATOR_CREST,
+  UNKNOWN: NARRATOR_CREST,
+  DUKE_MALACHAR: require('../../assets/characters/duke_malachar.jpg'),
+  GENERAL_HARKON: require('../../assets/characters/general_harkon.jpg'),
+  KING_EDWYN: require('../../assets/characters/king_edwyn.jpg'),
+  PRINCESS_ELOWEN: require('../../assets/characters/princess_elowen.jpg'),
+  PRINCE_ALDRIC_SELMARA: require('../../assets/characters/prince_aldric_selmara.jpg'),
+  SULTAN_RASHID: require('../../assets/characters/sultan_rashid.jpg'),
+  ENVOY_ZARA: require('../../assets/characters/envoy_zara.jpg'),
+  LORD_ALDRIC_VANE: require('../../assets/characters/aldric_vane.jpg'),
+  LORD_HARWIN_SORN: require('../../assets/characters/harwin_sorn.jpg'),
+  LORD_CERIN_VANE: require('../../assets/characters/cerin_vane.jpg'),
+  PRIEST_EDRAN: require('../../assets/characters/rahip_edran.jpg'),
+  MIRA: require('../../assets/characters/mira.jpg'),
+  GENERAL_CAELAN_VOSS: require('../../assets/characters/caelan_voss.jpg'),
+  LORD_COMMANDER_DRAVEN: require('../../assets/characters/draven.jpg'),
+  COMMANDER_SERA_ASHFORD: require('../../assets/characters/sera_ashford.jpg'),
+  TOMAS: require('../../assets/characters/tomas.jpg'),
+  LENA: require('../../assets/characters/lena.jpg'),
 };
 
 function houseColor(house: string): string {
@@ -199,8 +156,18 @@ const TypingIndicator = () => {
   );
 };
 
-function TypingBubble() {
-  return <TypingIndicator />;
+function TypingBubble({ language }: { language: Language }) {
+  return (
+    <View style={styles.aiBlockRow}>
+      <Image source={NARRATOR_CREST} style={styles.aiBlockAvatarImage} resizeMode="contain" />
+      <View style={styles.aiBlockBody}>
+        <Text style={styles.aiBlockName}>{t(language, 'narratorLabel')}</Text>
+        <View style={styles.aiBubble}>
+          <TypingIndicator />
+        </View>
+      </View>
+    </View>
+  );
 }
 
 type MessageEditProps = {
@@ -374,9 +341,15 @@ function parseTaggedResponse(text: string, tagNames: Record<string, string>): Ar
 
       if (currentTag.startsWith('CHARACTER:')) {
         resolvedName = currentTag.slice(10).trim();
-        // Try to match to known tag by name
-        const upperName = resolvedName.toUpperCase().split(' ')[0];
-        resolvedTag = TAG_AVATARS[upperName] ? upperName : 'UNKNOWN';
+        const idTag = resolvedName.toUpperCase().replace(/\s+/g, '_');
+        if (TAG_AVATARS[idTag]) {
+          resolvedTag = idTag;
+        } else if (CHARACTER_AVATARS[resolvedName]) {
+          resolvedTag = 'UNKNOWN';
+        } else {
+          const upperName = resolvedName.toUpperCase().split(' ')[0];
+          resolvedTag = TAG_AVATARS[upperName] ? upperName : 'UNKNOWN';
+        }
       }
 
       const name = resolvedName;
@@ -560,12 +533,13 @@ function AIMessageBubble({
   return (
     <>
       {mergedBlocks.map((block, index) => {
-        const avatarSource = TAG_AVATARS[block.tag] ?? TAG_AVATARS['UNKNOWN'];
+        const avatarSource =
+          TAG_AVATARS[block.tag] ?? getCharacterAvatarSource(block.name) ?? TAG_AVATARS['UNKNOWN'];
         const isFirstOrLastBlock = index === 0 || index === mergedBlocks.length - 1;
 
         return (
           <View key={`${item.id}-${index}`} style={styles.aiBlockRow}>
-            <Image source={avatarSource} style={styles.aiBlockAvatarImage} />
+            <Image source={avatarSource} style={styles.aiBlockAvatarImage} resizeMode="contain" />
             <View style={styles.aiBlockBody}>
               <Text style={styles.aiBlockName}>{block.name}</Text>
               <View style={styles.aiBubble}>
@@ -654,10 +628,10 @@ const HOUSE_CONFIG: Record<string, { label: string; short: string; color: string
 // Logo asset map — sen kendi asset path'lerini buraya yaz
 // Geçici olarak emoji kullan, logolar gelince değiştir
 const HOUSE_LOGOS: Record<string, any> = {
-  gryffindor: require('../../assets/houses/gryffindor.png'),
-  ravenclaw:  require('../../assets/houses/ravenclaw.png'),
-  hufflepuff: require('../../assets/houses/hufflepuff.png'),
-  slytherin:  require('../../assets/houses/slytherin.png'),
+  gryffindor: require('../../assets/valdenmoor_crest.png'),
+  ravenclaw: require('../../assets/valdenmoor_crest.png'),
+  hufflepuff: require('../../assets/valdenmoor_crest.png'),
+  slytherin: require('../../assets/valdenmoor_crest.png'),
 };
 
 const HOUSE_SCORE_COLOR: Record<string, string> = {
@@ -1125,8 +1099,8 @@ const {
     () => localizeScheduleData(rawScheduleData, language),
     [rawScheduleData, language],
   );
-  const [currentLocation, setCurrentLocation] = useState<string>('gryffindor_tower');
-  const [displayLocation, setDisplayLocation] = useState<string>('gryffindor_tower');
+  const [currentLocation, setCurrentLocation] = useState<string>('castle_exterior');
+  const [displayLocation, setDisplayLocation] = useState<string>('castle_exterior');
   const bgOpacity = useRef(new Animated.Value(1)).current;
   const [showSchedule, setShowSchedule] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -1462,6 +1436,7 @@ const {
         >
           <View style={[styles.screen, { position: 'relative' }]}>
             <View style={styles.header}>
+              <Image source={NARRATOR_CREST} style={styles.headerCrest} resizeMode="contain" />
               <Text style={styles.headerTitle}>{NARRATOR_NAME}</Text>
               <Text style={styles.headerSubtitle}>{t(language, 'narratorSubtitle')}</Text>
             </View>
@@ -1506,9 +1481,10 @@ const {
               keyboardShouldPersistTaps="handled"
               inverted={false}
               showsVerticalScrollIndicator={false}
-              ListFooterComponent={isLoading ? <TypingBubble /> : null}
+              ListFooterComponent={isLoading ? <TypingBubble language={language} /> : null}
               ListEmptyComponent={
                 <View style={styles.emptyStateWrap}>
+                  <Image source={NARRATOR_CREST} style={styles.emptyStateCrest} resizeMode="contain" />
                   <Text style={styles.emptyStateTitle}>{NARRATOR_NAME}</Text>
                   <Text style={styles.emptyStateSubtitle}>{t(language, 'emptyStateSubtitle')}</Text>
                 </View>
@@ -1606,14 +1582,20 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   header: {
-    height: 64,
+    minHeight: 96,
     backgroundColor: 'rgba(5, 3, 1, 0.88)',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.08)',
     paddingHorizontal: 16,
+    paddingVertical: 8,
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  headerCrest: {
+    width: 48,
+    height: 48,
+    marginBottom: 4,
   },
   headerTitle: {
     fontSize: 26,
@@ -1933,6 +1915,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 32,
     paddingVertical: 24,
+  },
+  emptyStateCrest: {
+    width: 80,
+    height: 80,
+    marginBottom: 12,
   },
   emptyStateTitle: {
     fontSize: 17,

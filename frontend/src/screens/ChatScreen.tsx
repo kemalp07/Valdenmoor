@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   FlatList,
+  Image,
   KeyboardAvoidingView,
   NativeSyntheticEvent,
   Platform,
@@ -23,7 +24,7 @@ import { sendMessage as sendAiMessage } from '../services/aiService';
 import { t } from '../i18n/translations';
 
 const NARRATOR_NAME = 'Valdenmoor';
-const NARRATOR_SYMBOL = '👑';
+const NARRATOR_CREST = require('../../assets/valdenmoor_crest.png');
 const HOUSES = ['Gryffindor', 'Hufflepuff', 'Ravenclaw', 'Slytherin'] as const;
 const MIN_INPUT_HEIGHT = 36;
 const MAX_INPUT_HEIGHT = 100;
@@ -208,9 +209,7 @@ function MessageBubble({ item }: MessageBubbleProps) {
 
   return (
     <View style={styles.aiRow}>
-      <View style={styles.aiAvatar}>
-        <Text style={styles.aiAvatarText}>{NARRATOR_SYMBOL}</Text>
-      </View>
+      <Image source={NARRATOR_CREST} style={styles.aiAvatarImage} resizeMode="contain" />
       <View style={styles.aiBubble}>
         <View style={styles.aiMessageRoot}>{parseAIMessage(item.text)}</View>
       </View>
@@ -221,9 +220,7 @@ function MessageBubble({ item }: MessageBubbleProps) {
 function TypingBubble() {
   return (
     <View style={styles.aiRow}>
-      <View style={styles.aiAvatar}>
-        <Text style={styles.aiAvatarText}>{NARRATOR_SYMBOL}</Text>
-      </View>
+      <Image source={NARRATOR_CREST} style={styles.aiAvatarImage} resizeMode="contain" />
       <View style={styles.aiBubble}>
         <TypingDots />
       </View>
@@ -341,9 +338,7 @@ export const ChatScreen: React.FC = () => {
         >
           <View style={styles.screen}>
             <View style={styles.header}>
-              <View style={styles.headerAvatar}>
-                <Text style={styles.headerInitial}>{NARRATOR_SYMBOL}</Text>
-              </View>
+              <Image source={NARRATOR_CREST} style={styles.headerCrest} resizeMode="contain" />
               <View style={styles.headerTextWrap}>
                 <Text style={styles.headerTitle}>{NARRATOR_NAME}</Text>
                 <Text style={styles.headerSubtitle}>{t(language, 'narratorSubtitle')}</Text>
@@ -367,6 +362,7 @@ export const ChatScreen: React.FC = () => {
               ListFooterComponent={isLoading ? <TypingBubble /> : null}
               ListEmptyComponent={
                 <View style={styles.emptyStateWrap}>
+                  <Image source={NARRATOR_CREST} style={styles.emptyStateCrest} resizeMode="contain" />
                   <Text style={styles.emptyStateTitle}>{NARRATOR_NAME}</Text>
                   <Text style={styles.emptyStateSubtitle}>{t(language, 'emptyStateSubtitle')}</Text>
                 </View>
@@ -437,19 +433,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  headerAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#D97706',
-    alignItems: 'center',
-    justifyContent: 'center',
+  headerCrest: {
+    width: 36,
+    height: 36,
     marginRight: 10,
-  },
-  headerInitial: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
   },
   headerTextWrap: {
     flex: 1,
@@ -502,20 +489,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
   },
-  aiAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#D97706',
-    alignItems: 'center',
-    justifyContent: 'center',
+  aiAvatarImage: {
+    width: 32,
+    height: 32,
     marginRight: 8,
     flexShrink: 0,
-  },
-  aiAvatarText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
   },
   aiBubble: {
     backgroundColor: 'rgba(20, 12, 4, 0.82)',
@@ -675,6 +653,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 32,
     paddingVertical: 24,
+  },
+  emptyStateCrest: {
+    width: 80,
+    height: 80,
+    marginBottom: 12,
   },
   emptyStateTitle: {
     fontSize: 17,

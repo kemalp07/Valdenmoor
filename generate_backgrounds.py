@@ -1,9 +1,9 @@
 """
-Hogwarts Arka Plan Üretici — Vertex AI Imagen
+Valdenmoor Arka Plan Üretici — Vertex AI Imagen
 Kullanım:
   pip install google-cloud-aiplatform pillow python-dotenv
   python generate_backgrounds.py
-  python generate_backgrounds.py --only great_hall
+  python generate_backgrounds.py --only throne_room
 """
 
 import argparse
@@ -12,7 +12,6 @@ import time
 from pathlib import Path
 from dotenv import load_dotenv
 
-# .env yükle
 script_dir = Path(__file__).parent
 for env_path in [script_dir / ".env", script_dir / "backend" / ".env", script_dir.parent / ".env"]:
     if env_path.exists():
@@ -25,35 +24,32 @@ _env_location = os.getenv("VERTEX_AI_LOCATION", "us-central1")
 LOCATION = "us-central1" if _env_location == "global" else _env_location
 
 LOCATIONS = {
-    "gryffindor_tower": "Gryffindor common room interior, cozy fireplace with golden flames, red and gold tapestries, round windows showing starry night, worn leather armchairs, floating candles, stone walls, warm amber lighting",
-    "great_hall": "Hogwarts Great Hall interior, four long dining tables, thousands of floating candles, enchanted ceiling showing night sky with stars, gothic stone arches, warm golden light, grand and majestic atmosphere",
-    "library": "Hogwarts library, towering bookshelves reaching ceiling, floating books, dim candlelight, old wooden tables, dust particles in air, mysterious restricted section with chains, deep shadows",
-    "dungeons": "Hogwarts dungeon corridor, stone walls with green torches, cold blue-green lighting, damp stone floor, ominous atmosphere",
-    "quidditch_field": "Hogwarts Quidditch pitch, large stadium with wooden stands, green grass field, golden goal hoops, dramatic cloudy sky, late afternoon light, epic scale",
-    "corridor": "Hogwarts castle corridor at night, moving portraits on stone walls, floating torches, shifting staircases visible in background, moonlight through tall windows, mysterious and eerie atmosphere",
-    "classroom": "Hogwarts general classroom, rows of wooden desks, blackboard with magical diagrams, floating chalk, stone walls with hanging magical charts, warm candlelight",
-    "owlery": "Hogwarts owlery tower interior, hundreds of owls perched on wooden beams, moonlight streaming through open arches, feathers floating in air, cold blue moonlight atmosphere",
-    "hospital_wing": "Hogwarts hospital wing, rows of white beds with curtains, floating potions and bandages, large windows with soft daylight, clean stone walls, calm atmosphere",
-    "forbidden_forest": "Hogwarts forbidden forest edge at night, ancient twisted trees, bioluminescent plants, moonlight filtering through dense canopy, mysterious fog, dark and magical atmosphere",
-    "hogsmeade": "Hogsmeade village street, snow covered rooftops, warm glowing shop windows, Three Broomsticks inn sign, cobblestone street, winter atmosphere, cozy and magical",
-    "astronomy_tower": "Hogwarts astronomy tower top, open battlements, large telescope, panoramic view of castle and lake below, star filled night sky, cold clear air, moonlight, epic scale",
-    "potions_classroom": "Hogwarts potions classroom deep in dungeons, rows of cauldrons bubbling with colorful smoke, shelves packed with jars of strange ingredients, green torchlight, stone walls dripping with moisture",
-    "transfiguration_classroom": "Hogwarts transfiguration classroom, desks with half-transformed objects, blackboard with complex diagrams, afternoon sunlight through tall windows, stone walls with tapestries",
-    "charms_classroom": "Hogwarts charms classroom, objects floating mid-air throughout the room, sparkling magical energy, warm golden light, stacked books and cushions everywhere, cheerful and bright",
-    "herbology_greenhouse": "Hogwarts herbology greenhouse, glass ceiling with tropical plants, exotic magical plants with glowing flowers, dirt covered wooden tables, warm humid misty atmosphere",
-    "defense_classroom": "Hogwarts defense against dark arts classroom, strange artifacts and dark creature specimens in jars, dim flickering torchlight, unsettling atmosphere, eerie purple-grey lighting",
-    "great_lake": "Hogwarts great lake shore at dusk, dark still water reflecting castle silhouette, giant tentacle barely visible beneath surface, autumn trees on shore, golden and purple sky",
-    "slytherin_common_room": "Slytherin common room deep under Hogwarts lake, green glowing windows showing dark lake water outside, fish and creatures visible through glass, silver and green decor, cold and elegant atmosphere",
-    "hufflepuff_common_room": "Hufflepuff common room near Hogwarts kitchens, round hobbit-like low ceiling, warm yellow and black decor, plants and flowers everywhere, cozy armchairs, warm earthy lighting",
-    "ravenclaw_common_room": "Ravenclaw common room in Hogwarts tower, tall arched windows with panoramic mountain view, blue and bronze decor, domed ceiling painted with stars, bookshelves covering every wall",
-    "gryffindor_dormitory": "Gryffindor boys dormitory, four-poster beds with deep red curtains, stone walls, narrow windows showing castle grounds, warm candlelight, cozy and lived-in atmosphere",
-    "slytherin_dormitory": "Slytherin boys dormitory deep underwater, green glow from lake outside round portholes, cold stone walls, silver and green bed curtains, dim green lighting",
-    "room_of_requirement": "Hogwarts room of requirement, vast room filled with centuries of hidden objects, towering piles of furniture and magical artifacts, dim golden light, labyrinthine passages between stacked items",
+    "throne_room": "Medieval fantasy throne room, grand stone hall, tall gothic windows with colored light, large ornate throne on raised platform, royal banners hanging from ceiling, flickering torches on walls, dusty beams of light, majestic and imposing atmosphere",
+    "great_hall": "Medieval castle great hall, long wooden feasting tables, roaring fireplace at far end, antler chandeliers with candles, stone walls with tapestries and hunting trophies, warm golden light, noble gathering atmosphere",
+    "war_room": "Medieval war room, large wooden table with detailed map of kingdom, candles dripping wax, quill and parchment, mounted swords and shields on walls, dark stone walls, tense strategic atmosphere",
+    "castle_corridor": "Medieval castle corridor at night, stone walls with torch sconces casting orange glow, suits of armor standing guard, narrow arrow slit windows showing moonlit courtyard, shadows and mystery",
+    "castle_exterior": "Valdenmoor castle exterior at dusk, imposing stone fortress on hilltop, banners flying in wind, village and farmland below, dramatic cloudy sky with orange sunset, epic fantasy atmosphere",
+    "ashenmoor_market": "Medieval fantasy market square, busy cobblestone plaza, merchant stalls with colorful awnings, timber framed buildings, crowd of people trading, castle walls visible in background, daytime bustling atmosphere",
+    "ashenmoor_streets": "Medieval fantasy city street at night, narrow cobblestone alley, timber framed houses leaning close, hanging lanterns casting warm glow, puddles reflecting light, mysterious and atmospheric",
+    "dawnhold_fortress": "Northern border fortress in fantasy setting, dark stone walls on mountain pass, snow dusted battlements, cold grey sky, northern pine forest beyond walls, guards patrolling, cold and foreboding atmosphere",
+    "varethis_harbor": "Medieval fantasy harbor city, wooden docks with tall masted ships, bustling port market, stone warehouses, seagulls, blue sea stretching to horizon, warm southern light",
+    "varethis_sea": "Fantasy Mediterranean harbor at golden hour, calm blue sea, stone lighthouse, fishing boats and merchant vessels, warm orange sky, peaceful and prosperous atmosphere",
+    "throne_antechamber": "Medieval castle antechamber, stone arched waiting room, wooden benches, royal guards standing at attention, heavy wooden doors leading to throne room, dim torch light, formal and tense",
+    "castle_dungeon": "Medieval castle dungeon, dark stone cell corridor, iron barred doors, dripping water, single torch barely illuminating, chains on walls, cold and oppressive atmosphere",
+    "castle_battlements": "Medieval castle battlements at night, stone crenellations, archer slits, view over dark kingdom below with village lights, full moon and stars, cold wind, lone guard silhouette",
+    "royal_chambers": "Medieval royal bedchamber, large four poster bed with rich curtains, stone walls with tapestries, fireplace with dying embers, moonlight through tall narrow window, private and quiet atmosphere",
+    "forest_path": "Dark medieval fantasy forest path, ancient gnarled trees forming canopy, dappled light filtering through, mist at ground level, mysterious and slightly ominous atmosphere, no characters",
+    "selmara_palace": "Eastern medieval fantasy palace exterior, golden domed architecture, lush courtyard gardens, marble columns, warm afternoon light, prosperous and elegant atmosphere",
+    "kadir_bazaar": "Arabian fantasy bazaar, colorful silk tents and awnings, exotic spices and goods, oil lanterns, desert architecture with arches and tiles, warm golden light, bustling and mysterious",
+    "battlefield": "Epic medieval fantasy battlefield aftermath, torn banners in mud, abandoned weapons, smoldering fires, dramatic stormy sky, ravens circling, desolate and somber atmosphere",
+    "council_chamber": "Medieval castle council chamber, round stone table with carved chairs, tall windows, royal seals on walls, maps and scrolls, candelabras, formal atmosphere for political meetings",
+    "chapel": "Medieval castle chapel interior, simple stone nave, rows of wooden pews, tall narrow windows with colored glass, altar with candles, incense smoke, peaceful and sacred atmosphere",
 }
 
 STYLE_PREFIX = (
-    "Anime art style, Studio Ghibli inspired dark fantasy illustration, "
-    "detailed architectural background, no characters, no people, no text, no watermark, no logo, "
+    "Dark fantasy oil painting style, detailed architectural background, "
+    "cinematic lighting, no characters, no people, no text, no watermark, no logo, "
+    "medieval fantasy setting, dramatic atmosphere, "
 )
 
 MODELS_TO_TRY = [
@@ -107,7 +103,7 @@ def main():
         print("❌ VERTEX_AI_PROJECT_ID .env'de bulunamadı!")
         return
 
-    print(f"\n🏰 Hogwarts Arka Plan Üretici — Vertex AI Imagen")
+    print(f"\n🏰 Valdenmoor Arka Plan Üretici — Vertex AI Imagen")
     print(f"📋 Project: {PROJECT_ID} | Location: {LOCATION}")
 
     output_dir = Path(args.output)
@@ -118,6 +114,7 @@ def main():
     if args.only:
         if args.only not in LOCATIONS:
             print(f"❌ Bilinmeyen mekan: {args.only}")
+            print(f"Mevcut mekanlar: {', '.join(LOCATIONS.keys())}")
             return
         locations = {args.only: LOCATIONS[args.only]}
 
