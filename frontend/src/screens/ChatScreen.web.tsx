@@ -9,6 +9,7 @@ import {
   Platform,
   Pressable,
   TouchableOpacity,
+  ScrollView,
   SafeAreaView,
   StatusBar,
   StyleSheet,
@@ -25,6 +26,25 @@ import { deleteMessage, sendMessage as sendAiMessage, updateMessage } from '../s
 import { getInputTips, getTagNames, t, Language } from '../i18n/translations';
 
 const NARRATOR_NAME = 'Valdenmoor';
+const CHARACTER_NAME_MAP: Record<string, string> = {
+  lord_aldric_vane: 'Lord Vane',
+  lord_harwin_sorn: 'Lord Sorn',
+  lord_cerin_vane: 'Lord C. Vane',
+  mira: 'Mira',
+  lord_commander_draven: 'Draven',
+  commander_sera_ashford: 'Komutan Sera',
+  general_caelan_voss: 'General Voss',
+  priest_edran: 'Rahip Edran',
+  tomas: 'Tomas',
+  lena: 'Lena',
+  duke_malachar: 'Dük Malachar',
+  general_harkon: 'General Harkon',
+  king_edwyn: 'Kral Edwyn',
+  princess_elowen: 'Prenses Elowen',
+  prince_aldric_selmara: 'Prens Aldric',
+  sultan_rashid: 'Sultan Rashid',
+  envoy_zara: 'Elçi Zara',
+};
 const NARRATOR_CREST = require('../../assets/valdenmoor_crest.png');
 const USER_BUBBLE_COLOR = 'rgba(120, 50, 8, 0.95)';
 const LOCATION_BACKGROUNDS: Record<string, any> = {
@@ -197,148 +217,6 @@ function createMessage(role: 'user' | 'ai', text: string, characterName?: string
 function isEmptyUserMessage(item: Message): boolean {
   return item.role === 'user' && (!item.text || item.text.trim() === '');
 }
-
-function StatsBar({ stats }: { stats: Record<string, number> | null }) {
-  if (!stats) return null;
-
-  const mainStats = [
-    {
-      key: 'treasury',
-      icon: '💰',
-      value: stats.treasury ?? 0,
-      format: (v: number) => String(v),
-      critical: 150,
-      warning: 300,
-      max: 1000,
-      inverted: false,
-    },
-    {
-      key: 'army_morale',
-      icon: '⚔️',
-      value: stats.army_morale ?? 0,
-      format: (v: number) => `${v}%`,
-      critical: 20,
-      warning: 40,
-      max: 100,
-      inverted: false,
-    },
-    {
-      key: 'public_support',
-      icon: '👥',
-      value: stats.public_support ?? 0,
-      format: (v: number) => `${v}%`,
-      critical: 20,
-      warning: 35,
-      max: 100,
-      inverted: false,
-    },
-    {
-      key: 'prestige',
-      icon: '👑',
-      value: stats.prestige ?? 0,
-      format: (v: number) => `${v}%`,
-      critical: 15,
-      warning: 30,
-      max: 100,
-      inverted: false,
-    },
-  ];
-
-  const relations = [
-    { key: 'friendship_dravkor', label: 'Dravkor', value: stats.friendship_dravkor ?? 35 },
-    { key: 'friendship_selmara', label: 'Selmara', value: stats.friendship_selmara ?? 75 },
-    { key: 'friendship_varethis', label: 'Varethis', value: stats.friendship_varethis ?? 70 },
-    { key: 'friendship_kadir', label: 'Kadir', value: stats.friendship_kadir ?? 80 },
-  ];
-
-  const getRelColor = (v: number) => {
-    if (v >= 60) return '#2ecc71';
-    if (v >= 35) return '#e67e22';
-    return '#e74c3c';
-  };
-
-  return (
-    <View style={statsBarStyles.container}>
-      {mainStats.map((item, index) => {
-        const isCritical = item.value <= item.critical;
-        const isWarning = item.value <= item.warning;
-        const color = isCritical ? '#e74c3c' : isWarning ? '#e67e22' : 'rgba(201,168,76,0.75)';
-        return (
-          <React.Fragment key={item.key}>
-            {index > 0 && <Text style={statsBarStyles.separator}>·</Text>}
-            <View style={statsBarStyles.item}>
-              <Text style={statsBarStyles.icon}>{item.icon}</Text>
-              <Text style={[statsBarStyles.value, { color }]}>
-                {item.format(item.value)}
-              </Text>
-            </View>
-          </React.Fragment>
-        );
-      })}
-
-      <Text style={statsBarStyles.separator}>  |  </Text>
-
-      {relations.map((rel, index) => (
-        <React.Fragment key={rel.key}>
-          {index > 0 && <Text style={statsBarStyles.separator}>·</Text>}
-          <View style={statsBarStyles.item}>
-            <View style={[statsBarStyles.dot, { backgroundColor: getRelColor(rel.value) }]} />
-            <Text style={[statsBarStyles.relLabel, { color: getRelColor(rel.value) }]}>
-              {rel.label} {rel.value}
-            </Text>
-          </View>
-        </React.Fragment>
-      ))}
-    </View>
-  );
-}
-
-const statsBarStyles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(201,168,76,0.12)',
-    gap: 2,
-    rowGap: 4,
-  },
-  item: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 5,
-  },
-  icon: {
-    fontSize: 11,
-  },
-  value: {
-    fontSize: 11,
-    fontWeight: '600',
-    fontFamily: Platform.OS === 'web' ? 'Cinzel, serif' : undefined,
-    letterSpacing: 0.5,
-  },
-  separator: {
-    color: 'rgba(201,168,76,0.25)',
-    fontSize: 10,
-  },
-  dot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    marginRight: 3,
-  },
-  relLabel: {
-    fontSize: 10,
-    fontFamily: Platform.OS === 'web' ? 'Cinzel, serif' : undefined,
-    letterSpacing: 0.3,
-    opacity: 0.85,
-  },
-});
 
 const TypingIndicator = () => {
   const dot1 = useRef(new Animated.Value(0.3)).current;
@@ -876,7 +754,7 @@ export const ChatScreen = ({ navigation }: any) => {
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
-  const [gameStats, setGameStats] = useState<Record<string, number> | null>(null);
+  const [characterStatuses, setCharacterStatuses] = useState<Record<string, string>>({});
   const [suggestedButtons, setSuggestedButtons] = useState<Array<{ action: string; label: string }>>([]);
 
   const canSend = useMemo(() => !isLoading, [isLoading]);
@@ -895,19 +773,17 @@ export const ChatScreen = ({ navigation }: any) => {
     setHistoryLoaded(false);
     openingRequested.current = false;
     setMessages([]);
-    setGameStats(null);
+    setCharacterStatuses({});
 
     if (!sessionId) return;
-    fetch(`${API_BASE}/game-stats?session_id=${encodeURIComponent(sessionId)}`)
+    fetch(`${API_BASE}/character-statuses?session_id=${encodeURIComponent(sessionId)}`)
       .then((res) => res.json())
       .then((data) => {
-        if (data?.stats) {
-          setGameStats(data.stats);
+        if (data?.statuses) {
+          setCharacterStatuses(data.statuses);
         }
       })
-      .catch(() => {
-        // Sessizce geç, AI yanıtından gelince güncellenir
-      });
+      .catch(() => {});
   }, [sessionId, setMessages]);
 
   useEffect(() => {
@@ -926,9 +802,6 @@ export const ChatScreen = ({ navigation }: any) => {
           sessionId,
           characterProfile,
         );
-        if (aiResponse.gameStats) {
-          setGameStats(aiResponse.gameStats);
-        }
         applyLocationFromAi(aiResponse.location);
         const displayText = await processAiResponseText(aiResponse.text, sessionId);
         setMessages([
@@ -1006,6 +879,20 @@ export const ChatScreen = ({ navigation }: any) => {
     };
   }, [messages, isLoading]);
 
+  const pollCharacterStatuses = async () => {
+    if (!sessionId) return;
+    try {
+      const res = await fetch(`${API_BASE}/character-statuses?session_id=${encodeURIComponent(sessionId)}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data?.statuses) {
+        setCharacterStatuses(data.statuses);
+      }
+    } catch {
+      // Background task henüz bitmemiş olabilir
+    }
+  };
+
   const pollPendingButtons = async () => {
     if (!sessionId) return;
     try {
@@ -1040,15 +927,15 @@ export const ChatScreen = ({ navigation }: any) => {
 
     try {
       const aiResponse = await sendAiMessage(nextMessages, userName, '', sessionId, characterProfile);
-      if (aiResponse.gameStats) {
-        setGameStats(aiResponse.gameStats);
-      }
       if (aiResponse.suggestedButtons && aiResponse.suggestedButtons.length > 0) {
         setSuggestedButtons(aiResponse.suggestedButtons);
       }
       applyLocationFromAi(aiResponse.location);
       const displayText = await processAiResponseText(aiResponse.text, sessionId);
-      setTimeout(() => pollPendingButtons(), 2000);
+      setTimeout(() => {
+        pollPendingButtons();
+        pollCharacterStatuses();
+      }, 2000);
       if (aiResponse.narratorInjection) {
         const injectionMsg: Message = {
           id: `narrator-${Date.now()}`,
@@ -1113,8 +1000,7 @@ export const ChatScreen = ({ navigation }: any) => {
               </View>
             </View>
 
-            <StatsBar stats={gameStats} />
-
+            <View style={styles.chatBody}>
             <FlatList
               ref={flatListRef}
               data={messages}
@@ -1165,6 +1051,21 @@ export const ChatScreen = ({ navigation }: any) => {
                 </View>
               }
             />
+
+            {Object.keys(characterStatuses).length > 0 && (
+              <ScrollView style={styles.relationPanel} showsVerticalScrollIndicator={false}>
+                <Text style={styles.relationTitle}>SARAY</Text>
+                {Object.entries(characterStatuses).map(([charId, status]) => (
+                  <View key={charId} style={styles.relationItem}>
+                    <Text style={styles.relationName}>
+                      {CHARACTER_NAME_MAP[charId] || charId}
+                    </Text>
+                    <Text style={styles.relationStatus}>{status}</Text>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
+            </View>
 
             <View style={styles.inputArea}>
               <Text style={styles.inputTip}>{inputTips[tipIndex]}</Text>
@@ -1272,6 +1173,40 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: 'transparent',
+  },
+  chatBody: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  relationPanel: {
+    width: 180,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderLeftWidth: 1,
+    borderLeftColor: 'rgba(201,168,76,0.15)',
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+  },
+  relationTitle: {
+    color: 'rgba(201,168,76,0.5)',
+    fontSize: 9,
+    letterSpacing: 2,
+    fontFamily: Platform.OS === 'web' ? 'Cinzel, serif' : undefined,
+    marginBottom: 10,
+  },
+  relationItem: {
+    marginBottom: 10,
+  },
+  relationName: {
+    color: 'rgba(245,220,180,0.8)',
+    fontSize: 11,
+    fontFamily: Platform.OS === 'web' ? 'Cinzel, serif' : undefined,
+    marginBottom: 2,
+  },
+  relationStatus: {
+    color: 'rgba(245,220,180,0.45)',
+    fontSize: 10,
+    lineHeight: 14,
+    fontStyle: 'italic',
   },
   header: {
     height: 64,

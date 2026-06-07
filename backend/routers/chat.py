@@ -21,7 +21,7 @@ from services.session_service import (
     normalize_origin,
     normalize_ruling_style,
 )
-from services.character_service import get_character_relations, detect_character
+from services.character_service import detect_character
 from services.action_service import classify_action, suggest_buttons, apply_action
 from db.supabase_client import insert_message, supabase
 import traceback
@@ -200,17 +200,15 @@ async def chat_endpoint(request: Request):
         profile.get("rulingStyle", "diplomatic"),
         profile.get("origin", "noble"),
     )
-    game_stats = ensure_game_stats(session_id)
-    character_relations = get_character_relations(session_id)
-
     messages_for_model = await build_prompt(
         user_name=user_name,
         messages=conversation_messages,
         memories=memories,
-        game_stats=game_stats,
-        character_relations=character_relations,
+        game_stats=None,
+        character_relations=None,
         character_profile=character_profile,
         language=language,
+        session_id=session_id,
     )
 
     model = body.get("model") or os.getenv("VERTEX_AI_MODEL", "gemini-2.0-flash-001")
@@ -528,6 +526,14 @@ async def get_game_stats_endpoint(session_id: str = Query(..., min_length=1)):
     """Mevcut oyun istatistiklerini döner."""
     stats = ensure_game_stats(session_id)
     return JSONResponse(content={"status": "ok", "stats": stats})
+
+
+@router.get("/character-statuses")
+async def get_character_statuses_endpoint(session_id: str = Query(..., min_length=1)):
+    """Karakter durum metinlerini döner."""
+    from services.relationship_service import get_character_statuses
+    statuses = get_character_statuses(session_id)
+    return JSONResponse(content={"statuses": statuses})
 
 
 @router.get("/pending-buttons")

@@ -74,6 +74,8 @@ CREATE TABLE character_relations (
   session_id UUID NOT NULL REFERENCES game_sessions(id) ON DELETE CASCADE,
   character_id TEXT NOT NULL,
   loyalty INTEGER DEFAULT 50,
+  status TEXT DEFAULT NULL,
+  status_updated_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW(),
   UNIQUE(session_id, character_id)
 );

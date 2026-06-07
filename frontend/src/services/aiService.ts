@@ -10,7 +10,6 @@ export type AIMessageResult = {
   characterName?: string;
   narratorInjection?: string;
   location?: string;
-  gameStats?: Record<string, number>;
   suggestedButtons?: ActionButton[];
 };
 
@@ -124,7 +123,6 @@ export async function sendMessage(
     let characterName = '';
     let narratorInjection: string | undefined;
     let location: string | undefined;
-    let gameStats: Record<string, number> | undefined;
     let suggestedButtons: ActionButton[] | undefined;
 
     for (const line of raw.split('\n')) {
@@ -144,7 +142,6 @@ export async function sendMessage(
           character_name?: string;
           narrator_injection?: string;
           location?: string;
-          game_stats?: Record<string, number>;
           suggested_buttons?: ActionButton[];
         };
         if (parsed.type === 'meta') {
@@ -164,9 +161,6 @@ export async function sendMessage(
           if (parsed.location) {
             location = parsed.location;
           }
-          if (parsed.game_stats) {
-            gameStats = parsed.game_stats;
-          }
           if (parsed.suggested_buttons && parsed.suggested_buttons.length > 0) {
             suggestedButtons = parsed.suggested_buttons;
           }
@@ -185,7 +179,6 @@ export async function sendMessage(
       characterName: characterName || undefined,
       narratorInjection,
       location,
-      gameStats,
       suggestedButtons,
     };
   } catch (error) {

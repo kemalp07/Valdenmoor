@@ -1,7 +1,7 @@
 """
-Karakter İlişki Servisi
-- Her karakterle ilişki skoru (-100 ile +100)
-- Sohbet sonrası AI analizi ile güncellenir
+Valdenmoor Karakter İlişki Servisi
+- Sayısal loyalty yerine sözel durum sistemi
+- Her konuşma sonrası Gemini durumu günceller
 - System prompt'a enjekte edilir
 """
 
@@ -18,8 +18,28 @@ from services.vertex_ai import DEFAULT_LOCATION, DEFAULT_MODEL, _load_service_ac
 
 logger = logging.getLogger(__name__)
 
+CHARACTER_NAMES = {
+    "lord_aldric_vane": "Lord Aldric Vane",
+    "lord_harwin_sorn": "Lord Harwin Sorn",
+    "lord_cerin_vane": "Lord Cerin Vane",
+    "mira": "Mira",
+    "lord_commander_draven": "Lord Komutan Draven",
+    "commander_sera_ashford": "Komutan Sera Ashford",
+    "general_caelan_voss": "General Caelan Voss",
+    "priest_edran": "Rahip Edran",
+    "tomas": "Tomas",
+    "lena": "Lena",
+    "duke_malachar": "Dük Malachar",
+    "general_harkon": "General Harkon",
+    "king_edwyn": "Kral Edwyn",
+    "princess_elowen": "Prenses Elowen",
+    "prince_aldric_selmara": "Prens Aldric",
+    "sultan_rashid": "Sultan Rashid",
+    "envoy_zara": "Elçi Zara",
+}
 
-async def _call_vertex(prompt: str, max_tokens: int = 300) -> str:
+
+async def _call_vertex(prompt: str, max_tokens: int = 400) -> str:
     credentials, project_id = _load_service_account()
     if not credentials or not project_id:
         return ""
@@ -47,7 +67,7 @@ async def _call_vertex(prompt: str, max_tokens: int = 300) -> str:
     payload = {
         "contents": [{"role": "user", "parts": [{"text": prompt}]}],
         "generationConfig": {
-            "temperature": 0.2,
+            "temperature": 0.3,
             "maxOutputTokens": max_tokens,
             "candidateCount": 1,
         },
@@ -66,60 +86,44 @@ async def _call_vertex(prompt: str, max_tokens: int = 300) -> str:
         return ""
 
 
-def get_relationships(session_id: str) -> dict:
+def get_character_statuses(session_id: str) -> dict[str, str]:
+    """Tüm karakterlerin mevcut durum metinlerini döner."""
     if not supabase:
         return {}
     try:
         resp = (
             supabase.table("character_relations")
-            .select("character_id,loyalty")
+            .select("character_id,status")
             .eq("session_id", session_id)
             .execute()
         )
         return {
-            row["character_id"]: {
-                "score": row.get("loyalty", 50),
-                "relationship_type": "neutral",
-            }
+            row["character_id"]: row.get("status") or ""
             for row in (resp.data or [])
+            if row.get("status")
         }
     except Exception as e:
-        logger.error(f"get_relationships error: {e}")
+        logger.error(f"get_character_statuses error: {e}")
         return {}
 
 
-def update_relationship_type(session_id: str, character_name: str, new_type: str):
-    """Romantik ilişki bayrağı — Valdenmoor'da loyalty skoru üzerinden yönetilir."""
-    logger.info(f"[{session_id}] {character_name} relationship_type → {new_type} (loyalty tabanlı)")
-
-
-def update_relationship(session_id: str, character_name: str, delta: int, reason: str):
+def update_character_status(session_id: str, character_id: str, status: str):
+    """Karakterin durum metnini güncelle."""
     if not supabase:
         return
     try:
-        resp = (
-            supabase.table("character_relations")
-            .select("loyalty")
-            .eq("session_id", session_id)
-            .eq("character_id", character_name)
-            .execute()
-        )
-        current = (resp.data or [{}])[0].get("loyalty", 50) if resp.data else 50
-        new_loyalty = max(0, min(100, current + delta))
-
         supabase.table("character_relations").upsert(
             {
                 "session_id": session_id,
-                "character_id": character_name,
-                "loyalty": new_loyalty,
-                "updated_at": datetime.utcnow().isoformat(),
+                "character_id": character_id,
+                "status": status,
+                "status_updated_at": datetime.utcnow().isoformat(),
             },
             on_conflict="session_id,character_id",
         ).execute()
-
-        logger.info(f"[{session_id}] {character_name}: {current} → {new_loyalty} ({delta:+}: {reason})")
+        logger.info(f"[{session_id}] {character_id} → {status}")
     except Exception as e:
-        logger.error(f"update_relationship error: {e}")
+        logger.error(f"update_character_status error: {e}")
 
 
 async def analyze_relationship_changes(
@@ -129,8 +133,8 @@ async def analyze_relationship_changes(
     player_attraction: str = "Her ikisi",
 ):
     """
-    Sohbeti analiz et, karakter ilişkilerini güncelle.
-    Her yanıt sonrası background'da çalışır.
+    Konuşmayı analiz et, etkilenen karakterlerin durumunu sözel olarak güncelle.
+    Her 5 mesajda bir background'da çalışır.
     """
     if not conversation:
         return
@@ -140,37 +144,43 @@ async def analyze_relationship_changes(
         f"{m['role'].upper()}: {m['content'][:400]}" for m in recent
     )
 
+    current_statuses = get_character_statuses(session_id)
+    status_context = ""
+    if current_statuses:
+        status_context = "\nMevcut durumlar:\n" + "\n".join(
+            f"- {CHARACTER_NAMES.get(k, k)}: {v}"
+            for k, v in current_statuses.items()
+        )
+
     prompt = f"""Sen Valdenmoor krallığının gizli kayıt tutucususun.
 Oyuncu: Kral/Kraliçe {player_name}
+{status_context}
 
-Aşağıdaki konuşmayı analiz et. Oyuncunun NPC'lerle etkileşimini değerlendir.
-Sadece bu konuşmada aktif olan karakterleri değerlendir. Adı geçmeyen karakterlere puan uygulama.
+Aşağıdaki konuşmayı analiz et. Sadece bu konuşmada aktif olan veya doğrudan etkilenen karakterleri değerlendir.
 
-Her değişim -15 ile +15 arasında olsun:
-- Oyuncu bir karaktere saygılı/adil/cömert davrandıysa → pozitif
-- Oyuncu bir karakteri tehdit etti/küçümsedi/görmezden geldiyse → negatif  
-- Oyuncu karakterin çıkarına hizmet eden bir karar aldıysa → pozitif
-- Oyuncu karakterin çıkarına zarar veren bir karar aldıysa → negatif
-- Küçük etkileşimlerde -3/+3, büyük olaylarda ±15
+Her etkilenen karakter için kısa bir durum metni yaz (maksimum 10 kelime, Türkçe):
+- Karakterin oyuncuya karşı şu anki tutumunu yansıt
+- Somut ol: "kızgın" değil "hazine kararından dolayı güvensiz"
+- Önemli olayları dahil et: idam, terfi, hakaret, ödül
 
 KONUŞMA:
 {conv_text}
 
-ÖNEMLİ: "character" alanında mutlaka snake_case ID kullan:
+SADECE JSON döndür (snake_case character_id kullan):
+[
+  {{"character": "lord_aldric_vane", "status": "Hazine krizini yönetememeni sorguluyor"}},
+  {{"character": "general_caelan_voss", "status": "İdam kararından sonra mesafe koyuyor"}}
+]
+
+Etkilenen karakter yoksa: []
+
+Geçerli character_id'ler:
 lord_aldric_vane, lord_harwin_sorn, lord_cerin_vane, mira,
 lord_commander_draven, commander_sera_ashford, general_caelan_voss,
 priest_edran, tomas, lena, duke_malachar, general_harkon,
-king_edwyn, princess_elowen, prince_aldric_selmara, sultan_rashid, envoy_zara
+king_edwyn, princess_elowen, prince_aldric_selmara, sultan_rashid, envoy_zara"""
 
-SADECE JSON döndür:
-[
-  {{"character": "lord_aldric_vane", "delta": -8, "reason": "Vezirin tavsiyesini reddetti"}},
-  {{"character": "lord_harwin_sorn", "delta": 5, "reason": "Hazine bakanına güven gösterdi"}}
-]
-
-Değişim yoksa: []"""
-
-    text = await _call_vertex(prompt, max_tokens=300)
+    text = await _call_vertex(prompt, max_tokens=400)
     if not text:
         return
 
@@ -186,130 +196,54 @@ Değişim yoksa: []"""
 
         for ch in changes:
             char = ch.get("character", "").strip()
-            delta = int(ch.get("delta", 0))
-            reason = ch.get("reason", "")
-            if char and delta != 0:
-                update_relationship(session_id, char, delta, reason)
+            status = ch.get("status", "").strip()
+            if char and status and char in CHARACTER_NAMES:
+                update_character_status(session_id, char, status)
 
     except Exception as e:
         logger.error(f"analyze_relationship_changes parse error: {e}")
 
-    await check_romance_trigger(session_id, conversation, player_name, player_attraction)
-
-
-async def check_romance_trigger(
-    session_id: str,
-    conversation: list,
-    player_name: str,
-    player_attraction: str = "Her ikisi",
-):
-    """
-    Romantik ilişki tetikleyici kontrolü.
-    Koşullar: skor >= 60 VE oyuncu açıkça ilgi göstermiş.
-    """
-    relationships = get_relationships(session_id)
-
-    candidates = [
-        (name, data)
-        for name, data in relationships.items()
-        if data["score"] >= 60 and data.get("relationship_type", "neutral") != "romance"
-    ]
-
-    if not candidates:
-        return
-
-    recent = conversation[-6:]
-    conv_text = "\n".join(f"{m['role'].upper()}: {m['content'][:300]}" for m in recent)
-
-    candidate_names = [name for name, _ in candidates]
-
-    prompt = f"""Aşağıdaki sohbette oyuncu ({player_name}) şu karakterlerden herhangi birine açıkça romantik ilgi gösterdi mi?
-Karakterler: {', '.join(candidate_names)}
-
-Romantik ilgi örnekleri: aşık olduğunu söylemek, öpmek istemek, el tutmak, flört etmek, sevdiğini belirtmek.
-
-KONUŞMA:
-{conv_text}
-
-SADECE JSON döndür (snake_case character_id kullan):
-{{"romance_triggered": "princess_elowen"}}
-veya
-{{"romance_triggered": null}}"""
-
-    text = await _call_vertex(prompt, max_tokens=50)
-    if not text:
-        return
-
-    try:
-        clean = text.strip()
-        if "```" in clean:
-            clean = clean.split("```")[1]
-            if clean.startswith("json"):
-                clean = clean[4:]
-        data = json.loads(clean.strip())
-        triggered = data.get("romance_triggered")
-
-        if triggered and triggered in [name for name, _ in candidates]:
-            female_indicators = [
-                "Elowen", "Mira", "Zara", "Sera", "Lena",
-            ]
-            is_female = any(ind in triggered for ind in female_indicators)
-
-            allowed = False
-            if player_attraction == "Kadınlar" and is_female:
-                allowed = True
-            elif player_attraction == "Erkekler" and not is_female:
-                allowed = True
-            elif player_attraction == "Her ikisi":
-                allowed = True
-
-            if allowed:
-                update_relationship_type(session_id, triggered, "romance")
-                logger.info(f"[{session_id}] Romance triggered with {triggered}!")
-    except Exception as e:
-        logger.error(f"check_romance_trigger error: {e}")
-
 
 def build_relationship_context(session_id: str) -> str:
-    """Mevcut ilişki skorlarını system prompt için formatla — davranış kurallarıyla birlikte."""
-    relationships = get_relationships(session_id)
-    if not relationships:
+    """
+    Karakter durumlarını system prompt için formatla.
+    Narrator bu bilgiyi kullanarak karakterleri gerçekçi oynar.
+    """
+    statuses = get_character_statuses(session_id)
+    if not statuses:
         return ""
 
     lines = []
-    for char, data in relationships.items():
-        score = data["score"] if isinstance(data, dict) else data
-
-        if score == 50:
-            continue  # başlangıç değeri, henüz etkileşim yok
-
-        if score >= 70:
-            behavior = "koşulsuz sadık. Her emri yerine getirir, tehlikeye atlar, sırrını korur."
-        elif score >= 40:
-            behavior = "güveniyor. Yardımcı olur ama kendi çıkarını da gözetir."
-        elif score >= 15:
-            behavior = "tarafsız ama olumlu. Makul istekleri kabul eder."
-        elif score >= -15:
-            behavior = "nötr. Ne yardım eder ne engel olur, durumu kollar."
-        elif score >= -40:
-            behavior = "soğuk ve mesafeli. Emirlere yavaş uyar, bilgi saklar."
-        elif score >= -70:
-            behavior = "düşmanca. Açıkça direnir, fırsat bulunca baltalar."
-        else:
-            behavior = "açık düşman. İhanet planlar, rakiplerle ittifak arar."
-
-        lines.append(f"- {char} (sadakat: {score}): {behavior}")
+    for char_id, status in statuses.items():
+        name = CHARACTER_NAMES.get(char_id, char_id)
+        lines.append(f"- {name}: {status}")
 
     if not lines:
         return ""
 
     return (
-        "## KARAKTER SADAKAT DURUMU — ZORUNLU UYGULA\n"
+        "## KARAKTER DURUMLARI — ZORUNLU UYGULA\n"
         + "\n".join(lines)
         + "\n\n"
-        "**KRİTİK:** Bu sadakat skorları karakterlerin nasıl davranacağını belirler. "
-        "Düşük sadakatli karakterler oyuncuya eyvallah demez, direnir, geciktirir, "
-        "bilgi saklar veya açıkça reddeder. Yüksek sadakatli karakterler bile kendi "
-        "ajandaları doğrultusunda hareket eder. Sadakat skoru ne olursa olsun hiçbir "
-        "karakter aptal değildir — kendi çıkarını düşünür."
+        "**KRİTİK:** Bu durumlar karakterlerin davranışını belirler. "
+        "Karakterler bu durumlarıyla tutarlı davranır. "
+        "Olumsuz durumu olan karakter oyuncuya eyvallah demez — "
+        "direnir, bilgi saklar, fırsatı kollar. "
+        "Hiçbir karakter aptal değildir, kendi çıkarını düşünür."
     )
+
+
+def get_relationships(session_id: str) -> dict:
+    """Eski API — geriye dönük uyumluluk için."""
+    statuses = get_character_statuses(session_id)
+    return {k: {"score": 50, "status": v} for k, v in statuses.items()}
+
+
+def update_relationship(session_id: str, character_name: str, delta: int, reason: str):
+    """Eski API — artık kullanılmıyor."""
+    pass
+
+
+def update_relationship_type(session_id: str, character_name: str, new_type: str):
+    """Eski API — artık kullanılmıyor."""
+    pass

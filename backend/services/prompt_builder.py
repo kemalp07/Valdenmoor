@@ -122,43 +122,8 @@ def _format_game_stats(stats: Optional[dict]) -> str:
 
 
 def _format_character_relations(relations: Optional[list]) -> str:
-    if not relations:
-        return ""
-
-    lines = ["## KARAKTER SADAKAT DURUMU — ZORUNLU UYGULA"]
-    for rel in relations:
-        if not isinstance(rel, dict):
-            continue
-        char_id = rel.get("character_id", "unknown")
-        loyalty = rel.get("loyalty", 50)
-
-        if loyalty >= 80:
-            behavior = "koşulsuz sadık. Her emri yerine getirir, tehlikeye atlar, sırları korur."
-        elif loyalty >= 65:
-            behavior = "güveniyor. Yardımcı olur ama kendi çıkarını da gözetir."
-        elif loyalty >= 51:
-            behavior = "olumlu ama temkinli. Makul istekleri kabul eder, şüpheyle izler."
-        elif loyalty == 50:
-            continue  # başlangıç değeri, henüz etkileşim yok
-        elif loyalty >= 35:
-            behavior = "soğuk ve mesafeli. Emirlere yavaş uyar, bilgi saklar, fırsatı kollar."
-        elif loyalty >= 20:
-            behavior = "açıkça karşı. Direnir, rakiplerle ittifak arayışında."
-        else:
-            behavior = "düşman. İhanet planlar, her fırsatta baltalamaya çalışır."
-
-        lines.append(f"- {char_id} (sadakat {loyalty}): {behavior}")
-
-    if len(lines) == 1:
-        return ""
-
-    return (
-        "\n".join(lines)
-        + "\n\n**KRİTİK:** Bu sadakat seviyeleri karakterlerin davranışını belirler. "
-        "Düşük sadakatli karakterler oyuncuya eyvallah demez — direnir, geciktirir, "
-        "bilgi saklar veya reddeder. Yüksek sadakat bile karakterin kendi ajandası "
-        "olduğunu değiştirmez. Hiçbir karakter aptal değildir."
-    )
+    """Artık kullanılmıyor — build_relationship_context kullanılıyor."""
+    return ""
 
 
 def _format_character_profile(user_name: str, character_profile: dict) -> str:
@@ -186,12 +151,16 @@ async def build_prompt(
     character_relations: Optional[list] = None,
     character_profile: Optional[dict] = None,
     language: str = "tr",
+    session_id: str = "",
 ) -> list:
     """Builds the system prompt from narrator.md, world.md, characters.json, and live game state."""
+    from services.relationship_service import build_relationship_context
+
     player = user_name or "Oyuncu"
     narrator = _load_narrator().replace("{{user}}", player)
     world = _load_world().replace("{{user}}", player)
     characters = _format_characters(_load_characters())
+    relationship_context = build_relationship_context(session_id) if session_id else ""
 
     system_parts = [
         narrator,
@@ -199,8 +168,8 @@ async def build_prompt(
         characters,
         _format_character_profile(player, character_profile) if character_profile else "",
         _format_memories(memories),
-        _format_game_stats(game_stats),
-        _format_character_relations(character_relations),
+        _format_game_stats(game_stats) if game_stats else "",
+        relationship_context,
     ]
 
     system_content = "\n\n".join(part for part in system_parts if part)
