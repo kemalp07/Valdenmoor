@@ -31,12 +31,18 @@ export async function deleteMessage(
   sessionId: string,
   content: string,
   role: 'user' | 'assistant',
+  messageId?: string,
 ): Promise<void> {
   try {
     await fetch(`${API_BASE}/delete-message`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ session_id: sessionId, content, role }),
+      body: JSON.stringify({
+        session_id: sessionId,
+        content,
+        role,
+        message_id: messageId,
+      }),
     });
   } catch {
     // Best-effort server sync.

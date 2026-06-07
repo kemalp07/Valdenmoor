@@ -180,7 +180,7 @@ async function deleteMessageItem(
   setMessages: MessageEditProps['setMessages'],
 ) {
   setMessages((prev) => prev.filter((m) => m.id !== item.id));
-  await deleteMessage(sessionId, item.text, role);
+  await deleteMessage(sessionId, item.text, role, item.id);
 }
 
 async function saveMessageEdit(
@@ -736,7 +736,7 @@ export const ChatScreen = ({ navigation }: any) => {
 
         const loaded: Message[] = msgs
           .map((m: any) => ({
-            id: Math.random().toString(36).slice(2),
+            id: m.id || `${m.role}-${Math.random().toString(36).slice(2)}`,
             role: m.role === 'user' ? 'user' : 'ai',
             text: m.role === 'assistant' ? cleanAiDisplayText(m.content) : m.content,
             characterName: m.character_name || undefined,

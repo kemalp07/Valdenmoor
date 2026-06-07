@@ -85,7 +85,7 @@ async def history_endpoint(session_id: str = Query(..., min_length=1)):
         resp = (
             supabase
             .table("messages")
-            .select("role,content,created_at")
+            .select("id,role,content,created_at")
             .eq("session_id", session_id)
             .order("created_at", desc=False)
             .execute()
@@ -405,18 +405,40 @@ async def run_simulation_endpoint(request: Request):
     })
 
 
+def _is_uuid(value: str) -> bool:
+    try:
+        uuid.UUID(str(value))
+        return True
+    except (ValueError, AttributeError, TypeError):
+        return False
+
+
 @router.post("/delete-message")
 async def delete_message_endpoint(request: Request):
     body = await request.json()
     session_id = body.get("session_id", "")
+    message_id = body.get("message_id")
     content = body.get("content", "")
     role = body.get("role", "user")
 
-    if not session_id or not content:
-        raise HTTPException(status_code=400, detail="session_id ve content gerekli")
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id gerekli")
 
     if supabase:
-        supabase.table("messages").delete().eq("session_id", session_id).eq("content", content).eq("role", role).execute()
+        if message_id and _is_uuid(message_id):
+            supabase.table("messages").delete().eq("id", message_id).execute()
+        elif content:
+            resp = (
+                supabase.table("messages")
+                .select("id")
+                .eq("session_id", session_id)
+                .eq("content", content)
+                .eq("role", role)
+                .limit(1)
+                .execute()
+            )
+            if resp.data:
+                supabase.table("messages").delete().eq("id", resp.data[0]["id"]).execute()
 
     return {"status": "ok"}
 
