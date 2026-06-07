@@ -9,7 +9,6 @@ import {
   Platform,
   Pressable,
   TouchableOpacity,
-  ScrollView,
   SafeAreaView,
   StatusBar,
   StyleSheet,
@@ -26,25 +25,6 @@ import { deleteMessage, sendMessage as sendAiMessage, updateMessage } from '../s
 import { getInputTips, getTagNames, t, Language } from '../i18n/translations';
 
 const NARRATOR_NAME = 'Valdenmoor';
-const CHARACTER_NAME_MAP: Record<string, string> = {
-  lord_aldric_vane: 'Lord Vane',
-  lord_harwin_sorn: 'Lord Sorn',
-  lord_cerin_vane: 'Lord C. Vane',
-  mira: 'Mira',
-  lord_commander_draven: 'Draven',
-  commander_sera_ashford: 'Komutan Sera',
-  general_caelan_voss: 'General Voss',
-  priest_edran: 'Rahip Edran',
-  tomas: 'Tomas',
-  lena: 'Lena',
-  duke_malachar: 'Dük Malachar',
-  general_harkon: 'General Harkon',
-  king_edwyn: 'Kral Edwyn',
-  princess_elowen: 'Prenses Elowen',
-  prince_aldric_selmara: 'Prens Aldric',
-  sultan_rashid: 'Sultan Rashid',
-  envoy_zara: 'Elçi Zara',
-};
 const NARRATOR_CREST = require('../../assets/valdenmoor_crest.png');
 const USER_BUBBLE_COLOR = 'rgba(120, 50, 8, 0.95)';
 const LOCATION_BACKGROUNDS: Record<string, any> = {
@@ -120,88 +100,8 @@ const TAG_AVATARS: Record<string, any> = {
   LENA: require('../../assets/characters/lena.jpg'),
 };
 
-const JSON_BLOCK_REGEX = /```json[\s\S]*?```/g;
-// Nested JSON'ı tam temizler: {"stats_delta": {"key": val}}
-const INLINE_STATS_REGEX = /\{[^{}]*"stats_delta"[^{}]*\{[^{}]*\}[^{}]*\}/g;
-
 function cleanAiDisplayText(text: string): string {
-  return text
-    .replace(JSON_BLOCK_REGEX, '')
-    .replace(INLINE_STATS_REGEX, '')
-    .trim();
-}
-
-function mergeStatsDelta(target: Record<string, number>, delta: Record<string, unknown>): boolean {
-  let found = false;
-  for (const [key, value] of Object.entries(delta)) {
-    if (typeof value === 'number' && !Number.isNaN(value)) {
-      target[key] = value;
-      found = true;
-    } else if (typeof value === 'string') {
-      const num = Number(value.replace(/^\+/, ''));
-      if (!Number.isNaN(num)) {
-        target[key] = num;
-        found = true;
-      }
-    }
-  }
-  return found;
-}
-
-function parseStatsDelta(text: string): Record<string, number> | null {
-  const merged: Record<string, number> = {};
-  let found = false;
-  let match: RegExpExecArray | null;
-
-  const blockRegex = /```json\s*([\s\S]*?)```/g;
-  while ((match = blockRegex.exec(text)) !== null) {
-    try {
-      const normalizedJson = match[1].replace(/:\s*\+(\d+)/g, ': $1');
-      const parsed = JSON.parse(normalizedJson) as { stats_delta?: Record<string, unknown> };
-      const delta = parsed?.stats_delta;
-      if (delta && typeof delta === 'object' && mergeStatsDelta(merged, delta)) {
-        found = true;
-      }
-    } catch {
-      // Ignore malformed JSON blocks.
-    }
-  }
-
-  const inlineRegex = /\{[^{}]*"stats_delta"[^{}]*\{[^{}]*\}[^{}]*\}/g;
-  while ((match = inlineRegex.exec(text)) !== null) {
-    try {
-      const normalizedJson = match[0].replace(/:\s*\+(\d+)/g, ': $1');
-      const parsed = JSON.parse(normalizedJson) as { stats_delta?: Record<string, unknown> };
-      const delta = parsed?.stats_delta;
-      if (delta && typeof delta === 'object' && mergeStatsDelta(merged, delta)) {
-        found = true;
-      }
-    } catch {
-      // Ignore malformed inline JSON.
-    }
-  }
-
-  return found ? merged : null;
-}
-
-async function postStatsDelta(sessionId: string, statsDelta: Record<string, number>) {
-  try {
-    await fetch(`${API_BASE}/update-stats`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ session_id: sessionId, stats_delta: statsDelta }),
-    });
-  } catch (error) {
-    console.error('update-stats error:', error);
-  }
-}
-
-async function processAiResponseText(text: string, sessionId: string): Promise<string> {
-  const statsDelta = parseStatsDelta(text);
-  if (statsDelta && Object.keys(statsDelta).length > 0) {
-    await postStatsDelta(sessionId, statsDelta);
-  }
-  return cleanAiDisplayText(text);
+  return text.trim();
 }
 
 function createMessage(role: 'user' | 'ai', text: string, characterName?: string): Message {
@@ -754,7 +654,6 @@ export const ChatScreen = ({ navigation }: any) => {
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
-  const [characterStatuses, setCharacterStatuses] = useState<Record<string, string>>({});
   const [suggestedButtons, setSuggestedButtons] = useState<Array<{ action: string; label: string }>>([]);
 
   const canSend = useMemo(() => !isLoading, [isLoading]);
@@ -773,17 +672,6 @@ export const ChatScreen = ({ navigation }: any) => {
     setHistoryLoaded(false);
     openingRequested.current = false;
     setMessages([]);
-    setCharacterStatuses({});
-
-    if (!sessionId) return;
-    fetch(`${API_BASE}/character-statuses?session_id=${encodeURIComponent(sessionId)}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (data?.statuses) {
-          setCharacterStatuses(data.statuses);
-        }
-      })
-      .catch(() => {});
   }, [sessionId, setMessages]);
 
   useEffect(() => {
@@ -803,7 +691,7 @@ export const ChatScreen = ({ navigation }: any) => {
           characterProfile,
         );
         applyLocationFromAi(aiResponse.location);
-        const displayText = await processAiResponseText(aiResponse.text, sessionId);
+        const displayText = cleanAiDisplayText(aiResponse.text);
         setMessages([
           createMessage('ai', displayText, aiResponse.characterName || NARRATOR_NAME),
         ]);
@@ -879,20 +767,6 @@ export const ChatScreen = ({ navigation }: any) => {
     };
   }, [messages, isLoading]);
 
-  const pollCharacterStatuses = async () => {
-    if (!sessionId) return;
-    try {
-      const res = await fetch(`${API_BASE}/character-statuses?session_id=${encodeURIComponent(sessionId)}`);
-      if (!res.ok) return;
-      const data = await res.json();
-      if (data?.statuses) {
-        setCharacterStatuses(data.statuses);
-      }
-    } catch {
-      // Background task henüz bitmemiş olabilir
-    }
-  };
-
   const pollPendingButtons = async () => {
     if (!sessionId) return;
     try {
@@ -931,11 +805,8 @@ export const ChatScreen = ({ navigation }: any) => {
         setSuggestedButtons(aiResponse.suggestedButtons);
       }
       applyLocationFromAi(aiResponse.location);
-      const displayText = await processAiResponseText(aiResponse.text, sessionId);
-      setTimeout(() => {
-        pollPendingButtons();
-        pollCharacterStatuses();
-      }, 2000);
+      const displayText = cleanAiDisplayText(aiResponse.text);
+      setTimeout(() => pollPendingButtons(), 2000);
       if (aiResponse.narratorInjection) {
         const injectionMsg: Message = {
           id: `narrator-${Date.now()}`,
@@ -1000,7 +871,6 @@ export const ChatScreen = ({ navigation }: any) => {
               </View>
             </View>
 
-            <View style={styles.chatBody}>
             <FlatList
               ref={flatListRef}
               data={messages}
@@ -1051,21 +921,6 @@ export const ChatScreen = ({ navigation }: any) => {
                 </View>
               }
             />
-
-            {Object.keys(characterStatuses).length > 0 && (
-              <ScrollView style={styles.relationPanel} showsVerticalScrollIndicator={false}>
-                <Text style={styles.relationTitle}>SARAY</Text>
-                {Object.entries(characterStatuses).map(([charId, status]) => (
-                  <View key={charId} style={styles.relationItem}>
-                    <Text style={styles.relationName}>
-                      {CHARACTER_NAME_MAP[charId] || charId}
-                    </Text>
-                    <Text style={styles.relationStatus}>{status}</Text>
-                  </View>
-                ))}
-              </ScrollView>
-            )}
-            </View>
 
             <View style={styles.inputArea}>
               <Text style={styles.inputTip}>{inputTips[tipIndex]}</Text>
@@ -1173,40 +1028,6 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: 'transparent',
-  },
-  chatBody: {
-    flex: 1,
-    flexDirection: 'row',
-  },
-  relationPanel: {
-    width: 180,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderLeftWidth: 1,
-    borderLeftColor: 'rgba(201,168,76,0.15)',
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-  },
-  relationTitle: {
-    color: 'rgba(201,168,76,0.5)',
-    fontSize: 9,
-    letterSpacing: 2,
-    fontFamily: Platform.OS === 'web' ? 'Cinzel, serif' : undefined,
-    marginBottom: 10,
-  },
-  relationItem: {
-    marginBottom: 10,
-  },
-  relationName: {
-    color: 'rgba(245,220,180,0.8)',
-    fontSize: 11,
-    fontFamily: Platform.OS === 'web' ? 'Cinzel, serif' : undefined,
-    marginBottom: 2,
-  },
-  relationStatus: {
-    color: 'rgba(245,220,180,0.45)',
-    fontSize: 10,
-    lineHeight: 14,
-    fontStyle: 'italic',
   },
   header: {
     height: 64,
