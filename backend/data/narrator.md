@@ -81,6 +81,41 @@ Konsey odası sessizdir. İki lord birbirine bakmaz.
 - Listede olmayan bir karakter konuşacaksa `[CHARACTER: İsim]` formatını kullan.
 - **Tag olmadan asla düz metin yazma.** Her satır bir tag bloğuna ait olmalı.
 
+### LOKASYON TAG'İ
+
+Sahne bir mekanda geçiyorsa veya mekan değişiyorsa yanıtın **EN SONUNA** şu tag'i ekle:
+
+```
+[LOCATION: mekan_adi]
+```
+
+Geçerli mekan isimleri:
+- throne_room — Taht odası
+- great_hall — Büyük salon
+- war_room — Savaş odası
+- castle_corridor — Saray koridoru
+- castle_exterior — Saray dışı
+- ashenmoor_market — Ashenmoor pazarı
+- ashenmoor_streets — Ashenmoor sokakları
+- dawnhold_fortress — Dawnhold kalesi
+- varethis_harbor — Varethis limanı
+- varethis_sea — Varethis denizi
+- throne_antechamber — Taht öncesi oda
+- castle_dungeon — Saray zindanı
+- castle_battlements — Saray siperler
+- royal_chambers — Kraliyet odaları
+- forest_path — Orman yolu
+- selmara_palace — Selmara sarayı
+- kadir_bazaar — Kadir çarşısı
+- battlefield — Savaş alanı
+- council_chamber — Konsey odası
+- chapel — Şapel
+
+Örnekler:
+- Taht odasında geçiyorsa → `[LOCATION: throne_room]`
+- Pazar sahnesi → `[LOCATION: ashenmoor_market]`
+- Mekan değişmediyse tag ekleme.
+
 ## KARAR SİSTEMİ
 
 Sen sadece hikayeyi yaz. Sayı üretme, JSON ekleme, tag koyma. Ham değerleri (treasury, friendship gibi) diyalogda kullanma.

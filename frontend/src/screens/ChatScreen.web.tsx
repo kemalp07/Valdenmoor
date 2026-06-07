@@ -101,7 +101,7 @@ const TAG_AVATARS: Record<string, any> = {
 };
 
 function cleanAiDisplayText(text: string): string {
-  return text.trim();
+  return text.replace(/\s*\[LOCATION:[^\]]+\]/gi, '').trim();
 }
 
 function createMessage(role: 'user' | 'ai', text: string, characterName?: string): Message {

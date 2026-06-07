@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 import os
 import uuid
 import json
+import re
 from services.prompt_builder import build_prompt
 from services.memory_service import generate_summary, get_memories, maybe_summarize_and_compress, save_memory
 from services.vertex_ai import stream_vertex_ai
@@ -35,6 +36,41 @@ logger = logging.getLogger(__name__)
 _DEBUG_CHAT = os.getenv("DEBUG_CHAT", "").lower() in ("1", "true", "yes")
 
 MAX_HISTORY_MESSAGES = 14
+
+_VALID_LOCATIONS = {
+    "throne_room",
+    "great_hall",
+    "war_room",
+    "castle_corridor",
+    "castle_exterior",
+    "ashenmoor_market",
+    "ashenmoor_streets",
+    "dawnhold_fortress",
+    "varethis_harbor",
+    "varethis_sea",
+    "throne_antechamber",
+    "castle_dungeon",
+    "castle_battlements",
+    "royal_chambers",
+    "forest_path",
+    "selmara_palace",
+    "kadir_bazaar",
+    "battlefield",
+    "council_chamber",
+    "chapel",
+}
+
+
+def _parse_location_tag(text: str) -> str | None:
+    match = re.search(r"\[LOCATION:\s*([a-z_]+)\]", text)
+    if not match:
+        return None
+    location = match.group(1).strip()
+    return location if location in _VALID_LOCATIONS else None
+
+
+def _strip_location_tag(text: str) -> str:
+    return re.sub(r"\s*\[LOCATION:[^\]]+\]", "", text).strip()
 
 
 def _normalize_history_role(role: str) -> Optional[str]:
@@ -336,6 +372,9 @@ async def chat_endpoint(request: Request):
 
         if _DEBUG_CHAT:
             logger.debug("AI FULL RESPONSE (ilk 1000): %s", full_text[:1000])
+
+        location = _parse_location_tag(full_text)
+        full_text = _strip_location_tag(full_text)
         char_name = detect_character(full_text)
 
         try:
@@ -353,6 +392,7 @@ async def chat_endpoint(request: Request):
             "suggested_buttons": [],
             "user_message_id": user_db_id,
             "assistant_message_id": assistant_db_id,
+            "location": location or "throne_room",
         })
         yield f"data: {done}\n\n"
 
