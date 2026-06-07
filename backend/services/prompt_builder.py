@@ -120,16 +120,42 @@ def _format_game_stats(stats: Optional[dict]) -> str:
 
 def _format_character_relations(relations: Optional[list]) -> str:
     if not relations:
-        return "## KARAKTER İLİŞKİLERİ:\n- Henüz kayıtlı karakter ilişkisi yok."
+        return ""
 
-    lines = ["## KARAKTER İLİŞKİLERİ (CANLI)"]
+    lines = ["## KARAKTER SADAKAT DURUMU — ZORUNLU UYGULA"]
     for rel in relations:
         if not isinstance(rel, dict):
             continue
-        lines.append(
-            f"- {rel.get('character_id', 'unknown')}: sadakat {rel.get('loyalty', 50)}"
-        )
-    return "\n".join(lines)
+        char_id = rel.get("character_id", "unknown")
+        loyalty = rel.get("loyalty", 50)
+
+        if loyalty >= 80:
+            behavior = "koşulsuz sadık. Her emri yerine getirir, tehlikeye atlar, sırları korur."
+        elif loyalty >= 65:
+            behavior = "güveniyor. Yardımcı olur ama kendi çıkarını da gözetir."
+        elif loyalty >= 51:
+            behavior = "olumlu ama temkinli. Makul istekleri kabul eder, şüpheyle izler."
+        elif loyalty == 50:
+            continue  # başlangıç değeri, henüz etkileşim yok
+        elif loyalty >= 35:
+            behavior = "soğuk ve mesafeli. Emirlere yavaş uyar, bilgi saklar, fırsatı kollar."
+        elif loyalty >= 20:
+            behavior = "açıkça karşı. Direnir, rakiplerle ittifak arayışında."
+        else:
+            behavior = "düşman. İhanet planlar, her fırsatta baltalamaya çalışır."
+
+        lines.append(f"- {char_id} (sadakat {loyalty}): {behavior}")
+
+    if len(lines) == 1:
+        return ""
+
+    return (
+        "\n".join(lines)
+        + "\n\n**KRİTİK:** Bu sadakat seviyeleri karakterlerin davranışını belirler. "
+        "Düşük sadakatli karakterler oyuncuya eyvallah demez — direnir, geciktirir, "
+        "bilgi saklar veya reddeder. Yüksek sadakat bile karakterin kendi ajandası "
+        "olduğunu değiştirmez. Hiçbir karakter aptal değildir."
+    )
 
 
 def _format_character_profile(user_name: str, character_profile: dict) -> str:
