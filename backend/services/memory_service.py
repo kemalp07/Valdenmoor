@@ -83,11 +83,10 @@ def _build_summary_prompt(conversation: list[dict]) -> str:
         "Valdenmoor krallık yönetim RPG'sinden kısa bir episodik "
         "hafıza kaydı çıkar.\n"
         "Türkçe yaz. Maksimum 3 cümle.\n"
-        "Şunları içer: kral/kraliçe ne kararlar aldı, hangi önemli "
-        "olay yaşandı, çözümlenmemiş ne var.\n"
-        "Spesifik ol — karakter isimlerini ve kararları net yaz.\n"
-        "ASLA sayı, yüzde, stats değeri yazma.\n"
-        "Sadece hikaye ve karar odaklı yaz.\n\n"
+        "Şunları içer: hangi önemli kararlar alındı, hangi olaylar "
+        "yaşandı, çözümlenmemiş ne var.\n"
+        "Karakter isimlerini ve kararları net yaz.\n"
+        "ASLA sayı, yüzde veya stats değeri yazma.\n\n"
         f"{conversation_text}"
     )
 
@@ -102,8 +101,6 @@ def _build_rolling_summary_prompt(conversation: list[dict]) -> str:
         "- Kral/Kraliçenin bu bölümde aldığı önemli kararlar ve sonuçları\n\n"
         "## DEVAM EDEN SORUNLAR:\n"
         "- Henüz çözülmemiş krizler, tehditler, verilen sözler\n\n"
-        "## STAT DEĞİŞİMLERİ:\n"
-        "- Hazine, ordu morali, halk desteği, prestij, Dravkor tehdidindeki önemli değişimler\n\n"
         "## KARATERLERİN TUTUMU:\n"
         "- Bu bölümde öne çıkan NPC'lerin kral/kraliçeye karşı tutumu\n\n"
         "Maksimum 250 kelime. Spesifik ol.\n\n"
@@ -111,7 +108,7 @@ def _build_rolling_summary_prompt(conversation: list[dict]) -> str:
     )
 
 
-async def _save_memory_row(session_id: str, character_id: str, summary: str, summary_type: str):
+async def _save_memory_row(session_id: str, summary: str, summary_type: str):
     if not supabase:
         return None
 
@@ -123,7 +120,6 @@ async def _save_memory_row(session_id: str, character_id: str, summary: str, sum
     }
     payload = {
         "user_id": owner_id,
-        "character_id": character_id,
         "summary": summary,
         "summary_type": summary_type,
     }
@@ -226,11 +222,11 @@ async def get_memories(session_id: str, limit: int = 5) -> list[str]:
     return memories[:effective_limit]
 
 
-async def save_memory(session_id: str, character_id: str, summary: str):
-    return await _save_memory_row(session_id, character_id, summary, "episodic")
+async def save_memory(session_id: str, summary: str):
+    return await _save_memory_row(session_id, summary, "episodic")
 
 
-async def maybe_summarize_and_compress(session_id: str, character_id: str, full_history: list[dict]) -> str | None:
+async def maybe_summarize_and_compress(session_id: str, full_history: list[dict]) -> str | None:
     assistant_count = 0
     for message in full_history or []:
         if not isinstance(message, dict):
@@ -297,7 +293,7 @@ async def maybe_summarize_and_compress(session_id: str, character_id: str, full_
             data = response.json()
             summary = _extract_text_from_response(data).strip()
             if summary:
-                await _save_memory_row(session_id, character_id, summary, "rolling")
+                await _save_memory_row(session_id, summary, "rolling")
                 return summary
             return None
     except Exception:

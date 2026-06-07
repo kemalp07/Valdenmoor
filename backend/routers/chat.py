@@ -216,7 +216,7 @@ async def chat_endpoint(request: Request):
 
     player_attraction = (profile.get("attraction") or "Her ikisi")
 
-    async def after_chat_response(sid: str, char_id: str, state: dict, ruler_name: str, attraction: str):
+    async def after_chat_response(sid: str, state: dict, ruler_name: str, attraction: str):
         full_text = str(state.get("full_text") or "").strip()
         user_msg = str(state.get("user_message") or "").strip()
         conversation = list(state.get("conversation") or [])
@@ -227,8 +227,8 @@ async def chat_endpoint(request: Request):
         if len(full_text) > 200 and conv_len >= 6:
             summary = await generate_summary(conversation)
             if summary.strip():
-                await save_memory(sid, char_id, summary.strip())
-            await maybe_summarize_and_compress(sid, char_id, conversation)
+                await save_memory(sid, summary.strip())
+            await maybe_summarize_and_compress(sid, conversation)
 
         action = await classify_action(sid, user_msg, full_text)
         if action:
@@ -360,7 +360,6 @@ async def chat_endpoint(request: Request):
     background_tasks.add_task(
         after_chat_response,
         session_id,
-        character_id,
         memory_state,
         user_name,
         player_attraction,
