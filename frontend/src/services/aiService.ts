@@ -11,6 +11,8 @@ export type AIMessageResult = {
   narratorInjection?: string;
   location?: string;
   suggestedButtons?: ActionButton[];
+  userMessageId?: string;
+  assistantMessageId?: string;
 };
 
 type ApiMessage = {
@@ -130,6 +132,8 @@ export async function sendMessage(
     let narratorInjection: string | undefined;
     let location: string | undefined;
     let suggestedButtons: ActionButton[] | undefined;
+    let userMessageId: string | undefined;
+    let assistantMessageId: string | undefined;
 
     for (const line of raw.split('\n')) {
       if (!line.startsWith('data: ')) {
@@ -149,6 +153,8 @@ export async function sendMessage(
           narrator_injection?: string;
           location?: string;
           suggested_buttons?: ActionButton[];
+          user_message_id?: string;
+          assistant_message_id?: string;
         };
         if (parsed.type === 'meta') {
           narratorInjection = parsed.narrator_injection;
@@ -170,6 +176,12 @@ export async function sendMessage(
           if (parsed.suggested_buttons && parsed.suggested_buttons.length > 0) {
             suggestedButtons = parsed.suggested_buttons;
           }
+          if (parsed.user_message_id) {
+            userMessageId = parsed.user_message_id;
+          }
+          if (parsed.assistant_message_id) {
+            assistantMessageId = parsed.assistant_message_id;
+          }
         }
       } catch {
         // Ignore malformed SSE chunks.
@@ -186,6 +198,8 @@ export async function sendMessage(
       narratorInjection,
       location,
       suggestedButtons,
+      userMessageId,
+      assistantMessageId,
     };
   } catch (error) {
     console.error('sendMessage failed:', error);

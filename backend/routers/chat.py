@@ -266,14 +266,31 @@ async def chat_endpoint(request: Request):
                 logger.error(f"Relationship analysis error: {e}")
 
     async def save_messages(sid: str, user_text: str, assistant_text: str):
+        user_id = None
+        assistant_id = None
         try:
-            insert_message(session_id=sid, character_id=None, role="user", content=user_text)
+            resp = insert_message(
+                session_id=sid,
+                character_id=None,
+                role="user",
+                content=user_text,
+            )
+            if resp and resp.data:
+                user_id = resp.data[0].get("id")
         except Exception:
             pass
         try:
-            insert_message(session_id=sid, character_id=None, role="assistant", content=assistant_text)
+            resp = insert_message(
+                session_id=sid,
+                character_id=None,
+                role="assistant",
+                content=assistant_text,
+            )
+            if resp and resp.data:
+                assistant_id = resp.data[0].get("id")
         except Exception:
             pass
+        return user_id, assistant_id
 
     full_text = ""
 
@@ -335,13 +352,15 @@ async def chat_endpoint(request: Request):
             _final_stats = {}
 
         memory_state["full_text"] = full_text
-        await save_messages(session_id, message, full_text)
+        user_db_id, assistant_db_id = await save_messages(session_id, message, full_text)
 
         done = json.dumps({
             "type": "done",
             "character_name": char_name,
             "game_stats": _final_stats,
             "suggested_buttons": [],
+            "user_message_id": user_db_id,
+            "assistant_message_id": assistant_db_id,
         })
         yield f"data: {done}\n\n"
 

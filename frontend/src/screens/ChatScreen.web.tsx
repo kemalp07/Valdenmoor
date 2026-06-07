@@ -119,30 +119,39 @@ function isEmptyUserMessage(item: Message): boolean {
 }
 
 const TypingIndicator = () => {
-  const dot1 = useRef(new Animated.Value(0.3)).current;
-  const dot2 = useRef(new Animated.Value(0.3)).current;
-  const dot3 = useRef(new Animated.Value(0.3)).current;
+  const dot1 = useRef(new Animated.Value(0)).current;
+  const dot2 = useRef(new Animated.Value(0)).current;
+  const dot3 = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const animate = (dot: Animated.Value, delay: number) =>
+    const bounce = (dot: Animated.Value, delay: number) =>
       Animated.loop(
         Animated.sequence([
           Animated.delay(delay),
-          Animated.timing(dot, { toValue: 1, duration: 400, useNativeDriver: true }),
-          Animated.timing(dot, { toValue: 0.3, duration: 400, useNativeDriver: true }),
+          Animated.timing(dot, {
+            toValue: -6,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+          Animated.timing(dot, {
+            toValue: 0,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+          Animated.delay(600),
         ])
       ).start();
 
-    animate(dot1, 0);
-    animate(dot2, 150);
-    animate(dot3, 300);
+    bounce(dot1, 0);
+    bounce(dot2, 150);
+    bounce(dot3, 300);
   }, []);
 
   return (
     <View style={styles.typingIndicator}>
-      <Animated.View style={[styles.typingDot, { opacity: dot1 }]} />
-      <Animated.View style={[styles.typingDot, { opacity: dot2 }]} />
-      <Animated.View style={[styles.typingDot, { opacity: dot3 }]} />
+      <Animated.View style={[styles.typingDot, { transform: [{ translateY: dot1 }] }]} />
+      <Animated.View style={[styles.typingDot, { transform: [{ translateY: dot2 }] }]} />
+      <Animated.View style={[styles.typingDot, { transform: [{ translateY: dot3 }] }]} />
     </View>
   );
 };
@@ -172,6 +181,25 @@ type MessageEditProps = {
 };
 
 type MessageBubbleProps = MessageEditProps;
+
+function applyAiResponseToMessages(
+  prev: Message[],
+  displayText: string,
+  aiResponse: { characterName?: string; userMessageId?: string; assistantMessageId?: string },
+): Message[] {
+  const updated = [...prev];
+  if (aiResponse.userMessageId) {
+    const userIdx = updated.findLastIndex((m) => m.role === 'user');
+    if (userIdx !== -1) {
+      updated[userIdx] = { ...updated[userIdx], id: aiResponse.userMessageId };
+    }
+  }
+  const aiMsg = createMessage('ai', displayText, aiResponse.characterName);
+  if (aiResponse.assistantMessageId) {
+    aiMsg.id = aiResponse.assistantMessageId;
+  }
+  return [...updated, aiMsg];
+}
 
 async function deleteMessageItem(
   sessionId: string,
@@ -692,9 +720,11 @@ export const ChatScreen = ({ navigation }: any) => {
         );
         applyLocationFromAi(aiResponse.location);
         const displayText = cleanAiDisplayText(aiResponse.text);
-        setMessages([
-          createMessage('ai', displayText, aiResponse.characterName || NARRATOR_NAME),
-        ]);
+        const aiMsg = createMessage('ai', displayText, aiResponse.characterName || NARRATOR_NAME);
+        if (aiResponse.assistantMessageId) {
+          aiMsg.id = aiResponse.assistantMessageId;
+        }
+        setMessages([aiMsg]);
       } catch {
         const intro = getFirstMessage(0, language);
         setMessages([createMessage('ai', intro, NARRATOR_NAME)]);
@@ -814,12 +844,13 @@ export const ChatScreen = ({ navigation }: any) => {
           text: aiResponse.narratorInjection,
           characterName: 'Valdenmoor',
         };
-        setMessages([injectionMsg, ...nextMessages, createMessage('ai', displayText, aiResponse.characterName)]);
+        setMessages((prev) => applyAiResponseToMessages(
+          [injectionMsg, ...prev],
+          displayText,
+          aiResponse,
+        ));
       } else {
-        setMessages([
-          ...nextMessages,
-          createMessage('ai', displayText, aiResponse.characterName),
-        ]);
+        setMessages((prev) => applyAiResponseToMessages(prev, displayText, aiResponse));
       }
     } catch (error) {
       console.error('AI Error:', error);
@@ -1429,9 +1460,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   typingDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: 'rgba(255,255,255,0.4)',
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: 'rgba(201, 168, 76, 0.7)',
+    marginHorizontal: 2,
   },
 });

@@ -41,7 +41,7 @@ def insert_message(session_id: str, character_id: str | None, role: str, content
         "content": content,
     }
     try:
-        return supabase.table("messages").insert(payload).execute()
+        return supabase.table("messages").insert(payload).select("id").execute()
     except Exception:
         logger.exception("Failed to insert message into Supabase")
         return None
