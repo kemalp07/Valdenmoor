@@ -877,6 +877,7 @@ export const ChatScreen = ({ navigation }: any) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [gameStats, setGameStats] = useState<Record<string, number> | null>(null);
+  const [suggestedButtons, setSuggestedButtons] = useState<Array<{ action: string; label: string }>>([]);
 
   const canSend = useMemo(() => !isLoading, [isLoading]);
 
@@ -1005,12 +1006,28 @@ export const ChatScreen = ({ navigation }: any) => {
     };
   }, [messages, isLoading]);
 
-  const handleSend = async () => {
-    const trimmed = inputText.trim();
+  const pollPendingButtons = async () => {
+    if (!sessionId) return;
+    try {
+      const res = await fetch(`${API_BASE}/pending-buttons?session_id=${encodeURIComponent(sessionId)}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data?.buttons?.length > 0) {
+        setSuggestedButtons(data.buttons);
+      }
+    } catch {
+      // Background task henüz bitmemiş olabilir
+    }
+  };
+
+  const handleSend = async (overrideText?: string) => {
+    const trimmed = (overrideText ?? inputText).trim();
 
     if (isLoading) {
       return;
     }
+
+    setSuggestedButtons([]);
 
     const nextMessages = trimmed
       ? [...messages, createMessage('user', trimmed)]
@@ -1026,8 +1043,12 @@ export const ChatScreen = ({ navigation }: any) => {
       if (aiResponse.gameStats) {
         setGameStats(aiResponse.gameStats);
       }
+      if (aiResponse.suggestedButtons && aiResponse.suggestedButtons.length > 0) {
+        setSuggestedButtons(aiResponse.suggestedButtons);
+      }
       applyLocationFromAi(aiResponse.location);
       const displayText = await processAiResponseText(aiResponse.text, sessionId);
+      setTimeout(() => pollPendingButtons(), 2000);
       if (aiResponse.narratorInjection) {
         const injectionMsg: Message = {
           id: `narrator-${Date.now()}`,
@@ -1147,6 +1168,19 @@ export const ChatScreen = ({ navigation }: any) => {
 
             <View style={styles.inputArea}>
               <Text style={styles.inputTip}>{inputTips[tipIndex]}</Text>
+              {suggestedButtons.length > 0 && (
+                <View style={styles.actionButtonsRow}>
+                  {suggestedButtons.map((btn) => (
+                    <Pressable
+                      key={btn.action}
+                      style={styles.actionButton}
+                      onPress={() => handleSend(btn.label)}
+                    >
+                      <Text style={styles.actionButtonText}>{btn.label}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
               <View style={[styles.inputBox, styles.inputBoxSpacing]}>
                 <TextInput
                   value={inputText}
@@ -1510,6 +1544,29 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 24,
     alignItems: 'center',
+  },
+  actionButtonsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    width: '100%',
+    maxWidth: 720,
+    justifyContent: 'center',
+  },
+  actionButton: {
+    backgroundColor: 'rgba(120, 50, 8, 0.85)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 220, 180, 0.3)',
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  actionButtonText: {
+    color: '#F5E6C8',
+    fontSize: 13,
+    fontFamily: Platform.OS === 'web' ? 'Cinzel, serif' : undefined,
   },
   inputTip: {
     fontSize: 11,

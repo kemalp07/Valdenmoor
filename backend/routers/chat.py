@@ -1,5 +1,4 @@
 import logging
-import re
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Request, Query, BackgroundTasks
@@ -23,6 +22,7 @@ from services.session_service import (
     normalize_ruling_style,
 )
 from services.character_service import get_character_relations, detect_character
+from services.action_service import classify_action, suggest_buttons, apply_action
 from db.supabase_client import insert_message, supabase
 import traceback
 from pathlib import Path
@@ -38,35 +38,6 @@ logger = logging.getLogger(__name__)
 _DEBUG_CHAT = os.getenv("DEBUG_CHAT", "").lower() in ("1", "true", "yes")
 
 MAX_HISTORY_MESSAGES = 14
-
-
-def _parse_stats_tag(text: str) -> dict:
-    """AI yanıtındaki [STATS: treasury:-120, army_morale:+20] tag'ini parse et."""
-    match = re.search(r"\[STATS:([^\]]+)\]", text)
-    if not match:
-        return {}
-    delta = {}
-    for part in match.group(1).split(","):
-        part = part.strip()
-        if ":" in part:
-            key, val = part.split(":", 1)
-            key = key.strip()
-            val = val.strip().replace("+", "")
-            valid_keys = {
-                "treasury", "army_morale", "public_support", "prestige",
-                "friendship_dravkor", "friendship_selmara", "friendship_varethis", "friendship_kadir",
-            }
-            if key in valid_keys:
-                try:
-                    delta[key] = int(val)
-                except ValueError:
-                    pass
-    return delta
-
-
-def _strip_stats_tag(text: str) -> str:
-    """[STATS:...] tag'ini yanıttan temizle — kullanıcı görmesin."""
-    return re.sub(r"\s*\[STATS:[^\]]+\]", "", text).strip()
 
 
 def _normalize_history_role(role: str) -> Optional[str]:
@@ -188,6 +159,23 @@ async def chat_endpoint(request: Request):
         except Exception as e:
             logger.error(f"pending_injection read error: {e}")
 
+    pending_buttons = []
+    if supabase:
+        try:
+            btn_resp = (
+                supabase.table("game_state")
+                .select("pending_buttons")
+                .eq("session_id", session_id)
+                .execute()
+            )
+            if btn_resp.data and btn_resp.data[0].get("pending_buttons"):
+                pending_buttons = json.loads(btn_resp.data[0]["pending_buttons"])
+                supabase.table("game_state").update(
+                    {"pending_buttons": None}
+                ).eq("session_id", session_id).execute()
+        except Exception as e:
+            logger.error(f"pending_buttons read error: {e}")
+
     user_message_for_model = message if message.strip() else (
         f"Kullanıcı henüz yazmadı. Valdenmoor açılış sahnesini başlat: "
         f"Vezir Aldric Vane {user_name} adlı hükümdara hazine raporu ve kuzey haberleriyle girsin. "
@@ -229,12 +217,14 @@ async def chat_endpoint(request: Request):
     memory_state = {
         "full_text": "",
         "conversation": conversation_for_memory,
+        "user_message": message,
     }
 
     player_attraction = (profile.get("attraction") or "Her ikisi")
 
     async def after_chat_response(sid: str, char_id: str, state: dict, ruler_name: str, attraction: str):
         full_text = str(state.get("full_text") or "").strip()
+        user_msg = str(state.get("user_message") or "").strip()
         conversation = list(state.get("conversation") or [])
         if full_text:
             conversation.append({"role": "assistant", "content": full_text})
@@ -244,6 +234,22 @@ async def chat_endpoint(request: Request):
             if summary.strip():
                 await save_memory(sid, char_id, summary.strip())
             await maybe_summarize_and_compress(sid, char_id, conversation)
+
+        action = await classify_action(sid, user_msg, full_text)
+        if action:
+            updated_stats = await apply_action(sid, action)
+            logger.info(f"[{sid}] Action applied: {action} → {updated_stats}")
+
+        current_stats = ensure_game_stats(sid)
+        buttons = await suggest_buttons(full_text, current_stats)
+        if buttons and supabase:
+            try:
+                supabase.table("game_state").upsert({
+                    "session_id": sid,
+                    "pending_buttons": json.dumps(buttons),
+                }, on_conflict="session_id").execute()
+            except Exception as e:
+                logger.error(f"pending_buttons save error: {e}")
 
         conv_len = _user_message_count(conversation)
         if conv_len % 5 == 0:
@@ -286,6 +292,7 @@ async def chat_endpoint(request: Request):
         meta = json.dumps({
             "type": "meta",
             "session_id": session_id,
+            "suggested_buttons": pending_buttons,
         })
         yield f"data: {meta}\n\n"
 
@@ -329,16 +336,11 @@ async def chat_endpoint(request: Request):
             logger.debug("AI FULL RESPONSE (ilk 1000): %s", full_text[:1000])
         char_name = detect_character(full_text)
 
-        stats_delta = _parse_stats_tag(full_text)
-        if stats_delta:
-            _final_stats = apply_stats_delta(session_id, stats_delta)
-        else:
-            try:
-                _final_stats = ensure_game_stats(session_id)
-            except Exception:
-                _final_stats = {}
+        try:
+            _final_stats = ensure_game_stats(session_id)
+        except Exception:
+            _final_stats = {}
 
-        full_text = _strip_stats_tag(full_text)
         memory_state["full_text"] = full_text
         await save_messages(session_id, message, full_text)
 
@@ -346,7 +348,7 @@ async def chat_endpoint(request: Request):
             "type": "done",
             "character_name": char_name,
             "game_stats": _final_stats,
-            "stats_changed": bool(stats_delta),
+            "suggested_buttons": [],
         })
         yield f"data: {done}\n\n"
 
@@ -526,6 +528,26 @@ async def get_game_stats_endpoint(session_id: str = Query(..., min_length=1)):
     """Mevcut oyun istatistiklerini döner."""
     stats = ensure_game_stats(session_id)
     return JSONResponse(content={"status": "ok", "stats": stats})
+
+
+@router.get("/pending-buttons")
+async def peek_pending_buttons(session_id: str = Query(..., min_length=1)):
+    """Background task'ın kaydettiği butonları okur (temizlemez)."""
+    if not supabase:
+        return JSONResponse(content={"buttons": []})
+    try:
+        resp = (
+            supabase.table("game_state")
+            .select("pending_buttons")
+            .eq("session_id", session_id)
+            .execute()
+        )
+        if resp.data and resp.data[0].get("pending_buttons"):
+            buttons = json.loads(resp.data[0]["pending_buttons"])
+            return JSONResponse(content={"buttons": buttons})
+    except Exception as e:
+        logger.error(f"pending_buttons peek error: {e}")
+    return JSONResponse(content={"buttons": []})
 
 
 @router.get("/load-characters")

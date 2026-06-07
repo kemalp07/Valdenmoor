@@ -134,6 +134,7 @@ CREATE TABLE game_state (
   points_floor_started_at TIMESTAMP DEFAULT NOW(),
   player_house TEXT DEFAULT 'gryffindor' CHECK (player_house IN ('gryffindor', 'hufflepuff', 'ravenclaw', 'slytherin')),
   pending_injection TEXT DEFAULT NULL,
+  pending_buttons TEXT DEFAULT NULL,
   updated_at TIMESTAMP DEFAULT NOW()
 );
 

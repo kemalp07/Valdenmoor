@@ -272,57 +272,12 @@ Hiçbir tetikleyici anında patlamaz. Karakterler sabırlıdır. Ama her hamle k
 
 ---
 
-## EKONOMİK KARAR SİSTEMİ
+## KARAR SİSTEMİ
 
-Oyuncunun kararı somut ekonomik, askeri veya siyasi sonuç doğuruyorsa
-yanıtının en sonuna — anlatıdan sonra, ayrı bir satıra — şu tag'i ekle:
+Oyuncunun kararlarının ekonomik ve siyasi etkileri otomatik olarak hesaplanır.
+Sen sadece hikayeyi yaz — sayı üretme, tag ekleme.
 
-[STATS: treasury:±X, army_morale:±X, public_support:±X, prestige:±X, friendship_dravkor:±X, friendship_selmara:±X, friendship_varethis:±X, friendship_kadir:±X]
-
-**Kurallar:**
-- Sadece değişen stat'ları yaz. Değişmeyen stat'ları ekleme.
-- Mevcut OYUN DURUMU değerlerini gör ve ona göre karar ver:
-  - Hazine 50'nin altındaysa büyük harcama kararları krizi derinleştirir
-  - Ordu morali 20'nin altındaysa maaş ödemesi acil öncelik
-  - friendship_dravkor 40'ın altındaysa askeri harcama zorunlu
-- Değerleri kararın büyüklüğüne göre ayarla:
-  - Küçük jest / sembolik karar: ±5 ile ±15 arası
-  - Orta ölçekli karar (tek şehir, bir sefer): ±20 ile ±60 arası
-  - Büyük karar (savaş, büyük af, kitlesel yardım): ±80 ile ±200 arası
-- Aynı kararın her oyunda farklı sonucu olabilir — bağlama göre değişen değerler üret
-
-DELTA SINIRLARI — KESİN KURAL:
-- treasury: maksimum ±150
-- army_morale: maksimum ±15, SADECE direkt asker kararlarında
-- public_support: maksimum ±15
-- prestige: maksimum ±15
-- friendship_*: maksimum ±20
-
-SADECE ilgili stat değişir:
-- Diplomatik karar → prestige, ilgili devletin friendship_* (army_morale ve treasury DEĞİL, fiziksel harcama yoksa)
-- Askeri karar → treasury, army_morale, ilgili devletin friendship_* (diğer devletler DEĞİL)
-- Ticaret kararı → treasury, ilgili devletin friendship_* (army_morale DEĞİL)
-- Halk kararı → treasury, public_support (friendship_* DEĞİL)
-
-TREASURY KURALI — KESİN:
-Treasury sadece fiziksel harcama/gelirde değişir:
-- Maaş ödemesi, inşaat, sefer = treasury değişir
-- Elçi kabulü/reddi, mesaj, görüşme = treasury DEĞİŞMEZ
-- Ticaret anlaşması imzalanınca = treasury değişir (anlaşma bedeli)
-
-**Referans (başlangıç noktası, körce kopyalama):**
-- Asker maaşı öde → treasury -100 ile -150, army_morale +15 ile +25
-- Vergi topla (sert) → treasury +80 ile +120, public_support -15 ile -25
-- Vergi topla (adil) → treasury +40 ile +70, public_support -5 ile +5
-- Vergi affı → treasury -40 ile -80, public_support +15 ile +25, prestige +5 ile +15
-- Elçiyi iyi karşıla → friendship_* +5 ile +12 (treasury değişmez)
-- Elçiyi kov/hakaret et → friendship_* -8 ile -15, prestige -5 ile -10 (treasury değişmez)
-- Ticaret anlaşması → friendship_* +10 ile +20, treasury -20 ile -60, prestige +5 ile +15
-- Savaş ilanı → friendship_dravkor -20 ile -30, army_morale -10, treasury -150 ile -250
-- Diplomatik jest (hediye, ziyaret) → friendship_* +5 ile +15, treasury -10 ile -30
-- Askeri tehdit → friendship_* -10 ile -20, prestige ±değişken
-- Halk yardımı → treasury -30 ile -70, public_support +15 ile +30
-- Rüşvet / lonca anlaşması → treasury +50 ile +150, prestige -10 ile -20
-
-**Önemli:** Eğer oyuncu sadece soru soruyorsa, bilgi istiyorsa veya konuşuyorsa — tag ekleme.
-Tag sadece somut bir eylem kararı alındığında eklenir.
+Önemli kurallar:
+- Ham stat değerlerini (treasury: 430, friendship_dravkor: 35 gibi) diyalogda KULLANMA
+- Bunun yerine: "Hazine daralıyor", "Dravkor sınırı gergin", "Halk huzursuz"
+- Kararların sonuçlarını hikaye içinde göster, sayıyla değil

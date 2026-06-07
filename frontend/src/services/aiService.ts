@@ -3,12 +3,15 @@ import { API_BASE } from '../config/api';
 
 export type Message = { id: string; role: 'user' | 'ai'; text: string; characterName?: string };
 
+export type ActionButton = { action: string; label: string };
+
 export type AIMessageResult = {
   text: string;
   characterName?: string;
   narratorInjection?: string;
   location?: string;
   gameStats?: Record<string, number>;
+  suggestedButtons?: ActionButton[];
 };
 
 type ApiMessage = {
@@ -122,6 +125,7 @@ export async function sendMessage(
     let narratorInjection: string | undefined;
     let location: string | undefined;
     let gameStats: Record<string, number> | undefined;
+    let suggestedButtons: ActionButton[] | undefined;
 
     for (const line of raw.split('\n')) {
       if (!line.startsWith('data: ')) {
@@ -141,11 +145,15 @@ export async function sendMessage(
           narrator_injection?: string;
           location?: string;
           game_stats?: Record<string, number>;
+          suggested_buttons?: ActionButton[];
         };
         if (parsed.type === 'meta') {
           narratorInjection = parsed.narrator_injection;
           if (parsed.location) {
             location = parsed.location;
+          }
+          if (parsed.suggested_buttons && parsed.suggested_buttons.length > 0) {
+            suggestedButtons = parsed.suggested_buttons;
           }
         } else if (parsed.type === 'chunk' && parsed.text) {
           assembled += parsed.text;
@@ -158,6 +166,9 @@ export async function sendMessage(
           }
           if (parsed.game_stats) {
             gameStats = parsed.game_stats;
+          }
+          if (parsed.suggested_buttons && parsed.suggested_buttons.length > 0) {
+            suggestedButtons = parsed.suggested_buttons;
           }
         }
       } catch {
@@ -175,6 +186,7 @@ export async function sendMessage(
       narratorInjection,
       location,
       gameStats,
+      suggestedButtons,
     };
   } catch (error) {
     console.error('sendMessage failed:', error);
