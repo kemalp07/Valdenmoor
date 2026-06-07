@@ -503,10 +503,9 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   crestImage: {
-    width: 420,
-    height: 360,
-    marginTop: -48,
-    marginBottom: -48,
+    width: 240,
+    height: 240,
+    marginBottom: 24,
   },
   nameInput: {
     width: '100%',

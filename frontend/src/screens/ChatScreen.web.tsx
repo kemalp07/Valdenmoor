@@ -169,6 +169,10 @@ function createMessage(role: 'user' | 'ai', text: string, characterName?: string
   };
 }
 
+function isEmptyUserMessage(item: Message): boolean {
+  return item.role === 'user' && (!item.text || item.text.trim() === '');
+}
+
 const TypingIndicator = () => {
   const dot1 = useRef(new Animated.Value(0.3)).current;
   const dot2 = useRef(new Animated.Value(0.3)).current;
@@ -261,9 +265,11 @@ async function saveMessageEdit(
 function BubbleInlineActions({
   onEdit,
   onDelete,
+  variant = 'ai',
 }: {
   onEdit: () => void;
   onDelete: () => void;
+  variant?: 'user' | 'ai';
 }) {
   const { language } = useAppContext();
   const [open, setOpen] = useState(false);
@@ -276,7 +282,12 @@ function BubbleInlineActions({
   }, [open]);
 
   return (
-    <View style={{ position: 'absolute', top: 2, right: 12, zIndex: 20 }}>
+    <View
+      style={[
+        styles.bubbleActionsAnchor,
+        variant === 'user' ? styles.userBubbleActionsAnchor : styles.aiBubbleActionsAnchor,
+      ]}
+    >
       <Pressable onPress={() => setOpen((o) => !o)}>
         <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 16, lineHeight: 16 }}>⋮</Text>
       </Pressable>
@@ -612,6 +623,10 @@ function MessageBubble({
   const handleDelete = () =>
     deleteMessageItem(sessionId, item, 'user', setMessages);
 
+  if (isEmptyUserMessage(item)) {
+    return null;
+  }
+
   if (editingId === item.id) {
     return (
       <View style={styles.userRow}>
@@ -633,7 +648,7 @@ function MessageBubble({
   return (
     <View style={styles.userRow}>
       <View style={[styles.userBubble, { backgroundColor: bubbleColor }]}>
-        <BubbleInlineActions onEdit={startEdit} onDelete={handleDelete} />
+        <BubbleInlineActions variant="user" onEdit={startEdit} onDelete={handleDelete} />
         <Text style={[styles.messageText, styles.userMessageText]}>
           {item.text}
         </Text>
@@ -773,13 +788,15 @@ export const ChatScreen = ({ navigation }: any) => {
           return;
         }
 
-        const loaded: Message[] = msgs.map((m: any) => ({
-          id: Math.random().toString(36).slice(2),
-          role: m.role === 'user' ? 'user' : 'ai',
-          text: m.role === 'assistant' ? cleanAiDisplayText(m.content) : m.content,
-          characterName: m.character_name || undefined,
-          timestamp: m.created_at ? new Date(m.created_at).getTime() : Date.now(),
-        }));
+        const loaded: Message[] = msgs
+          .map((m: any) => ({
+            id: Math.random().toString(36).slice(2),
+            role: m.role === 'user' ? 'user' : 'ai',
+            text: m.role === 'assistant' ? cleanAiDisplayText(m.content) : m.content,
+            characterName: m.character_name || undefined,
+            timestamp: m.created_at ? new Date(m.created_at).getTime() : Date.now(),
+          }))
+          .filter((m) => !isEmptyUserMessage(m));
 
         setMessages(loaded);
       } catch (e) {
@@ -892,8 +909,11 @@ export const ChatScreen = ({ navigation }: any) => {
               ref={flatListRef}
               data={messages}
               keyExtractor={(item) => item.id}
-              renderItem={({ item }) =>
-                item.role === 'ai' ? (
+              renderItem={({ item }) => {
+                if (isEmptyUserMessage(item)) {
+                  return null;
+                }
+                return item.role === 'ai' ? (
                   <AIMessageBubble
                     item={item}
                     sessionId={sessionId}
@@ -914,8 +934,8 @@ export const ChatScreen = ({ navigation }: any) => {
                     setEditingId={setEditingId}
                     setMessages={setMessages}
                   />
-                )
-              }
+                );
+              }}
               onContentSizeChange={() => {
                 flatListRef.current?.scrollToEnd({ animated: true });
               }}
@@ -1031,19 +1051,18 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   header: {
-    height: 72,
+    height: 64,
     backgroundColor: 'rgba(5, 3, 1, 0.88)',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.08)',
     paddingHorizontal: 16,
-    paddingVertical: 8,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerCrest: {
-    width: 56,
-    height: 56,
+    width: 48,
+    height: 48,
     marginRight: 10,
   },
   headerTextBlock: {
@@ -1051,14 +1070,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
     fontFamily: 'Cinzel, serif',
     letterSpacing: 3,
   },
   headerSubtitle: {
-    fontSize: 10,
+    fontSize: 11,
     color: 'rgba(255, 255, 255, 0.45)',
     letterSpacing: 2,
     marginTop: 1,
@@ -1084,6 +1103,19 @@ const styles = StyleSheet.create({
   userRow: {
     width: '100%',
     alignItems: 'flex-end',
+  },
+  bubbleActionsAnchor: {
+    position: 'absolute',
+    zIndex: 20,
+  },
+  userBubbleActionsAnchor: {
+    top: 4,
+    right: 4,
+    bottom: 'auto' as any,
+  },
+  aiBubbleActionsAnchor: {
+    top: 2,
+    right: 12,
   },
   userBubble: {
     borderTopLeftRadius: 14,
