@@ -106,19 +106,8 @@ def _format_memories(memories: List[str]) -> str:
 
 
 def _format_game_stats(stats: Optional[dict]) -> str:
-    if not stats:
-        return ""
-    return "\n".join([
-        "## OYUN DURUMU:",
-        f"- Hazine (treasury): {stats.get('treasury', 450)}",
-        f"- Ordu morali (army_morale): {stats.get('army_morale', 40)}",
-        f"- Halk desteği (public_support): {stats.get('public_support', 45)}",
-        f"- Prestij (prestige): {stats.get('prestige', 30)}",
-        f"- Dravkor dostluğu (friendship_dravkor): {stats.get('friendship_dravkor', 35)} (0=düşman, 100=müttefik)",
-        f"- Selmara dostluğu (friendship_selmara): {stats.get('friendship_selmara', 75)} (0=düşman, 100=müttefik)",
-        f"- Varethis dostluğu (friendship_varethis): {stats.get('friendship_varethis', 70)} (0=düşman, 100=müttefik)",
-        f"- Kadir dostluğu (friendship_kadir): {stats.get('friendship_kadir', 80)} (0=düşman, 100=müttefik)",
-    ])
+    """Stats artık system prompt'a enjekte edilmiyor."""
+    return ""
 
 
 def _format_character_relations(relations: Optional[list]) -> str:
@@ -168,7 +157,6 @@ async def build_prompt(
         characters,
         _format_character_profile(player, character_profile) if character_profile else "",
         _format_memories(memories),
-        _format_game_stats(game_stats) if game_stats else "",
         relationship_context,
     ]
 
