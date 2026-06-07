@@ -624,6 +624,7 @@ async def run_simulation_endpoint(request: Request):
     week = int(body.get("week", 1))
     day = int(body.get("day", 1))
     conversation = body.get("conversation", [])
+    user_name = body.get("user_name", "Öğrenci")
     player_attraction = body.get("player_attraction", "Her ikisi")
     ai_response = body.get("ai_response", "")
 
@@ -637,6 +638,10 @@ async def run_simulation_endpoint(request: Request):
         logger.info(f"[{session_id}] Simulation complete")
     except Exception as e:
         logger.error(f"Simulation error: {e}", exc_info=True)
+
+    narrator_injection = sim_result.get("narrator_injection")
+    if narrator_injection and ai_response:
+        ai_response = ai_response + "\n\n" + narrator_injection
 
     if ai_response:
         try:
@@ -671,7 +676,7 @@ async def run_simulation_endpoint(request: Request):
         await analyze_relationship_changes(
             session_id,
             conversation,
-            body.get("player_name", "Öğrenci"),
+            user_name,
             player_attraction,
         )
     except Exception as e:
