@@ -158,14 +158,8 @@ const TypingIndicator = () => {
 
 function TypingBubble({ language }: { language: Language }) {
   return (
-    <View style={styles.aiBlockRow}>
-      <Image source={NARRATOR_CREST} style={styles.aiBlockAvatarImage} resizeMode="contain" />
-      <View style={styles.aiBlockBody}>
-        <Text style={styles.aiBlockName}>{t(language, 'narratorLabel')}</Text>
-        <View style={styles.aiBubble}>
-          <TypingIndicator />
-        </View>
-      </View>
+    <View style={styles.typingBubbleSimple}>
+      <TypingIndicator />
     </View>
   );
 }
@@ -1451,6 +1445,15 @@ const styles = StyleSheet.create({
     color: '#CBB38C',
     textAlign: 'center',
     lineHeight: 20,
+  },
+  typingBubbleSimple: {
+    alignSelf: 'flex-start',
+    marginLeft: 16,
+    marginVertical: 8,
+    backgroundColor: 'rgba(10, 6, 4, 0.75)',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   typingIndicator: {
     flexDirection: 'row',

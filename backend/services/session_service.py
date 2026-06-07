@@ -169,3 +169,25 @@ def init_game_for_new_session(session_id: str, origin: str, ruling_style: str = 
             supabase.table("character_relations").insert(rows).execute()
     except Exception as e:
         logger.error(f"init_game_for_new_session error: {e}")
+
+
+def delete_game_session(session_id: str) -> None:
+    """Remove all DB rows tied to a game session."""
+    if not supabase:
+        return
+
+    from services.memory_service import _normalize_memory_owner_id
+
+    owner_id = _normalize_memory_owner_id(session_id)
+    try:
+        supabase.table("messages").delete().eq("session_id", session_id).execute()
+        supabase.table("characters").delete().eq("session_id", session_id).execute()
+        supabase.table("game_state").delete().eq("session_id", session_id).execute()
+        supabase.table("game_stats").delete().eq("session_id", session_id).execute()
+        supabase.table("character_relations").delete().eq("session_id", session_id).execute()
+        supabase.table("game_sessions").delete().eq("id", session_id).execute()
+        supabase.table("user_memories").delete().eq("user_id", owner_id).execute()
+        supabase.table("users").delete().eq("id", owner_id).execute()
+    except Exception as e:
+        logger.error(f"delete_game_session error: {e}")
+        raise

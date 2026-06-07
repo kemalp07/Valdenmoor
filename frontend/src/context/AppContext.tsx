@@ -46,7 +46,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const CHARACTERS_STORAGE_KEY = 'valdenmoor_characters';
 export const ACTIVE_CHARACTER_STORAGE_KEY = 'valdenmoor_active_character_id';
-const KNOWN_SESSIONS_KEY = 'valdenmoor_known_session_ids';
+export const KNOWN_SESSIONS_KEY = 'valdenmoor_known_session_ids';
 
 const LEGACY_CHARACTERS_KEY = 'fantasy_characters';
 const LEGACY_ACTIVE_CHARACTER_KEY = 'fantasy_active_character_id';
@@ -127,6 +127,23 @@ export function mapDbCharacterToCharacter(row: Record<string, unknown>): Charact
     createdAt: String(row.created_at || row.createdAt || new Date().toISOString()),
     attraction: row.attraction ? String(row.attraction) : undefined,
   };
+}
+
+export async function deleteSessionFromDB(sessionId: string): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `${API_BASE}/session?session_id=${encodeURIComponent(sessionId)}`,
+      { method: 'DELETE' },
+    );
+    if (!res.ok) {
+      console.error('deleteSessionFromDB failed:', res.status, await res.text());
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.error('deleteSessionFromDB error:', e);
+    return false;
+  }
 }
 
 export async function saveCharacterToDB(character: Character, sessionId: string) {

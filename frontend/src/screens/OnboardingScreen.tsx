@@ -20,6 +20,8 @@ import {
   loadStoredCharacters,
   loadAllCharactersFromDB,
   saveCharacterToDB,
+  deleteSessionFromDB,
+  KNOWN_SESSIONS_KEY,
 } from '../context/AppContext';
 import { API_BASE } from '../config/api';
 import { t } from '../i18n/translations';
@@ -181,15 +183,35 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ navigation }
 
   const confirmDelete = async () => {
     if (!deleteTarget) return;
+    const targetId = deleteTarget.id as string;
+    const sessionId = String(deleteTarget.sessionId || deleteTarget.session_id || '');
+
     try {
-      await fetch(`${API_BASE}/messages?session_id=${encodeURIComponent(deleteTarget.sessionId)}`, {
-        method: 'DELETE',
+      if (sessionId) {
+        await deleteSessionFromDB(sessionId);
+        const ids: string[] = JSON.parse(localStorage.getItem(KNOWN_SESSIONS_KEY) || '[]');
+        localStorage.setItem(
+          KNOWN_SESSIONS_KEY,
+          JSON.stringify(ids.filter((id) => id !== sessionId)),
+        );
+      } else if (targetId) {
+        const res = await fetch(
+          `${API_BASE}/character?character_id=${encodeURIComponent(targetId)}`,
+          { method: 'DELETE' },
+        );
+        if (!res.ok) {
+          console.error('Character delete failed:', res.status, await res.text());
+        }
+      }
+
+      setCharacters((prev) => {
+        const updated = prev.filter((c) => c.id !== targetId);
+        localStorage.setItem(CHARACTERS_STORAGE_KEY, JSON.stringify(updated));
+        return updated;
       });
-      const updated = characters.filter((c: any) => c.id !== deleteTarget.id);
-      setCharacters(updated);
-      localStorage.setItem(CHARACTERS_STORAGE_KEY, JSON.stringify(updated));
+
       const activeId = localStorage.getItem(ACTIVE_CHARACTER_STORAGE_KEY);
-      if (activeId === deleteTarget.id) {
+      if (activeId === targetId) {
         localStorage.removeItem(ACTIVE_CHARACTER_STORAGE_KEY);
         setActiveCharacter(null);
       }

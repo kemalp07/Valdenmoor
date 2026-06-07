@@ -20,6 +20,7 @@ from services.session_service import (
     init_game_for_new_session,
     normalize_origin,
     normalize_ruling_style,
+    delete_game_session,
 )
 from services.character_service import detect_character
 from services.action_service import classify_action, suggest_buttons, apply_action
@@ -484,12 +485,33 @@ async def edit_message_endpoint(request: Request):
     return {"status": "ok"}
 
 
-@router.delete("/api/messages")
+@router.delete("/messages")
 async def delete_messages(session_id: str = Query(..., min_length=1)):
     """Delete all messages and memories for a given session_id."""
     if supabase:
+        from services.memory_service import _normalize_memory_owner_id
+
+        owner_id = _normalize_memory_owner_id(session_id)
         supabase.table("messages").delete().eq("session_id", session_id).execute()
-        supabase.table("user_memories").delete().eq("session_id", session_id).execute()
+        supabase.table("user_memories").delete().eq("user_id", owner_id).execute()
+    return {"status": "ok"}
+
+
+@router.delete("/session")
+async def delete_session_endpoint(session_id: str = Query(..., min_length=1)):
+    """Delete a full game session and all related rows."""
+    try:
+        delete_game_session(session_id)
+    except Exception as e:
+        logger.error(f"delete_session error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    return {"status": "ok"}
+
+
+@router.delete("/character")
+async def delete_character_endpoint(character_id: str = Query(...)):
+    if supabase:
+        supabase.table("characters").delete().eq("id", character_id).execute()
     return {"status": "ok"}
 
 
