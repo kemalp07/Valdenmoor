@@ -42,15 +42,34 @@ CREATE TABLE user_memories (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Kullanıcı-karakter ilişki skoru
+-- Oyun oturumları
+CREATE TABLE game_sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  player_name TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Oyun istatistikleri (oturum bazlı)
+CREATE TABLE game_stats (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id UUID NOT NULL REFERENCES game_sessions(id) ON DELETE CASCADE,
+  treasury INTEGER DEFAULT 450,
+  army_morale INTEGER DEFAULT 40,
+  public_support INTEGER DEFAULT 45,
+  prestige INTEGER DEFAULT 30,
+  dravkor_threat INTEGER DEFAULT 60,
+  updated_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(session_id)
+);
+
+-- Karakter sadakat ilişkileri (oturum bazlı)
 CREATE TABLE character_relations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  character_id UUID REFERENCES characters(id),
-  relationship_score INTEGER DEFAULT 0 CHECK (relationship_score BETWEEN -100 AND 100),
-  notes TEXT,
-  last_interaction TIMESTAMP DEFAULT NOW(),
-  UNIQUE(user_id, character_id)
+  session_id UUID NOT NULL REFERENCES game_sessions(id) ON DELETE CASCADE,
+  character_id TEXT NOT NULL,
+  loyalty INTEGER DEFAULT 50,
+  updated_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(session_id, character_id)
 );
 
 -- Lore parçaları (RAG için)

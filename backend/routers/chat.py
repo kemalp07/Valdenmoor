@@ -40,6 +40,97 @@ logger = logging.getLogger(__name__)
 
 MAX_HISTORY_MESSAGES = 30
 
+_DEFAULT_GAME_STATS = {
+    "treasury": 450,
+    "army_morale": 40,
+    "public_support": 45,
+    "prestige": 30,
+    "dravkor_threat": 60,
+}
+
+
+def _ensure_game_session(session_id: str, player_name: str) -> None:
+    if not supabase:
+        return
+    try:
+        supabase.table("game_sessions").upsert(
+            {"id": session_id, "player_name": player_name},
+            on_conflict="id",
+        ).execute()
+    except Exception as e:
+        logger.error(f"ensure_game_session error: {e}")
+
+
+def _ensure_game_stats(session_id: str) -> dict:
+    if not supabase:
+        return dict(_DEFAULT_GAME_STATS)
+
+    try:
+        resp = (
+            supabase.table("game_stats")
+            .select("treasury,army_morale,public_support,prestige,dravkor_threat")
+            .eq("session_id", session_id)
+            .execute()
+        )
+        if resp.data:
+            return resp.data[0]
+
+        supabase.table("game_stats").insert(
+            {"session_id": session_id, **_DEFAULT_GAME_STATS}
+        ).execute()
+        return dict(_DEFAULT_GAME_STATS)
+    except Exception as e:
+        logger.error(f"ensure_game_stats error: {e}")
+        return dict(_DEFAULT_GAME_STATS)
+
+
+def _get_character_relations(session_id: str) -> list[dict]:
+    if not supabase:
+        return []
+    try:
+        resp = (
+            supabase.table("character_relations")
+            .select("character_id,loyalty")
+            .eq("session_id", session_id)
+            .order("character_id")
+            .execute()
+        )
+        return resp.data or []
+    except Exception as e:
+        logger.error(f"get_character_relations error: {e}")
+        return []
+
+
+def _build_game_state_context(stats: dict, relations: list[dict]) -> str:
+    lines = [
+        "## OYUN DURUMU:",
+        f"- Hazine (treasury): {stats.get('treasury', 450)}",
+        f"- Ordu morali (army_morale): {stats.get('army_morale', 40)}",
+        f"- Halk desteği (public_support): {stats.get('public_support', 45)}",
+        f"- Prestij (prestige): {stats.get('prestige', 30)}",
+        f"- Dravkor tehdidi (dravkor_threat): {stats.get('dravkor_threat', 60)}",
+    ]
+
+    if relations:
+        lines.append("\n## KARAKTER İLİŞKİLERİ:")
+        for rel in relations:
+            lines.append(
+                f"- {rel.get('character_id', 'unknown')}: sadakat {rel.get('loyalty', 50)}"
+            )
+    else:
+        lines.append("\n## KARAKTER İLİŞKİLERİ:\n- Henüz kayıtlı karakter ilişkisi yok.")
+
+    return "\n".join(lines)
+
+
+def _inject_game_state_into_prompt(messages_for_model: list, game_context: str) -> None:
+    if not game_context or not messages_for_model:
+        return
+    if messages_for_model[0].get("role") == "system":
+        messages_for_model[0]["content"] = (
+            messages_for_model[0].get("content", "") + "\n\n" + game_context
+        )
+
 
 def _normalize_history_role(role: str) -> Optional[str]:
     if role in ("assistant", "ai"):
@@ -210,6 +301,12 @@ async def chat_endpoint(request: Request):
         missed_context=missed_context,
         language=language,
     )
+
+    _ensure_game_session(session_id, user_name)
+    game_stats = _ensure_game_stats(session_id)
+    character_relations = _get_character_relations(session_id)
+    game_context = _build_game_state_context(game_stats, character_relations)
+    _inject_game_state_into_prompt(messages_for_model, game_context)
 
     model = body.get("model") or os.getenv("VERTEX_AI_MODEL", "gemini-2.0-flash-001")
     memory_state = {
