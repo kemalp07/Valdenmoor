@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
+  Easing,
   Image,
   ImageBackground,
   FlatList,
@@ -845,6 +846,9 @@ export const ChatScreen = ({ navigation }: any) => {
   const [inputText, setInputText] = useState('');
   const [inputHeight, setInputHeight] = useState(MIN_INPUT_HEIGHT);
   const [currentLocation, setCurrentLocation] = useState('castle_exterior');
+  const [shownLocation, setShownLocation] = useState('castle_exterior');
+  const [incomingLocation, setIncomingLocation] = useState<string | null>(null);
+  const locationFadeAnim = useRef(new Animated.Value(0)).current;
   const [tipIndex, setTipIndex] = useState(0);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -871,13 +875,43 @@ export const ChatScreen = ({ navigation }: any) => {
     }
   };
 
+  useEffect(() => {
+    if (currentLocation === shownLocation) return;
+
+    const targetLocation = currentLocation;
+    setIncomingLocation(targetLocation);
+    locationFadeAnim.setValue(0);
+    const animation = Animated.timing(locationFadeAnim, {
+      toValue: 1,
+      duration: 800,
+      easing: Easing.inOut(Easing.ease),
+      useNativeDriver: true,
+    });
+
+    animation.start(({ finished }) => {
+      if (!finished) return;
+      setShownLocation(targetLocation);
+      setIncomingLocation(null);
+      locationFadeAnim.setValue(0);
+    });
+
+    return () => animation.stop();
+  }, [currentLocation, shownLocation, locationFadeAnim]);
+
+  const resolveBackground = (key: string) =>
+    LOCATION_BACKGROUNDS[key] || LOCATION_BACKGROUNDS.castle_exterior;
+
   const openingRequested = useRef(false);
 
   useEffect(() => {
     setHistoryLoaded(false);
     openingRequested.current = false;
     setMessages([]);
-  }, [sessionId, setMessages]);
+    setCurrentLocation('castle_exterior');
+    setShownLocation('castle_exterior');
+    setIncomingLocation(null);
+    locationFadeAnim.setValue(0);
+  }, [sessionId, setMessages, locationFadeAnim]);
 
   useEffect(() => {
     if (!activeCharacter || !historyLoaded || openingRequested.current) return;
@@ -1052,11 +1086,21 @@ export const ChatScreen = ({ navigation }: any) => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ImageBackground
-        source={LOCATION_BACKGROUNDS[currentLocation] || LOCATION_BACKGROUNDS.castle_exterior}
-        resizeMode="cover"
-        style={styles.overlay}
-      >
+      <View style={styles.overlay}>
+        <ImageBackground
+          source={resolveBackground(shownLocation)}
+          resizeMode="cover"
+          style={styles.locationBackground}
+        />
+        {incomingLocation && (
+          <Animated.View style={[styles.locationBackground, { opacity: locationFadeAnim }]}>
+            <ImageBackground
+              source={resolveBackground(incomingLocation)}
+              resizeMode="cover"
+              style={StyleSheet.absoluteFillObject}
+            />
+          </Animated.View>
+        )}
         <View style={styles.backgroundDarkOverlay} />
         <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
         <KeyboardAvoidingView
@@ -1163,7 +1207,7 @@ export const ChatScreen = ({ navigation }: any) => {
             </View>
           </View>
         </KeyboardAvoidingView>
-      </ImageBackground>
+      </View>
 
       <DeleteConfirmModal
         confirm={deleteConfirm}
@@ -1192,7 +1236,10 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     flex: 1,
-    backgroundColor: 'transparent',
+    backgroundColor: '#0a0604',
+  },
+  locationBackground: {
+    ...StyleSheet.absoluteFillObject,
   },
   backgroundVideoWrap: {
     ...StyleSheet.absoluteFillObject,
