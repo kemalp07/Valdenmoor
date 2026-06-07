@@ -80,10 +80,14 @@ def _format_conversation(conversation: list[dict]) -> str:
 def _build_summary_prompt(conversation: list[dict]) -> str:
     conversation_text = _format_conversation(conversation)
     return (
-        "Valdenmoor krallık yönetim RPG'sinden kısa bir episodik hafıza kaydı çıkar.\n"
+        "Valdenmoor krallık yönetim RPG'sinden kısa bir episodik "
+        "hafıza kaydı çıkar.\n"
         "Türkçe yaz. Maksimum 3 cümle.\n"
-        "Şunları içer: kral/kraliçe ne kararlar aldı, hangi önemli olay yaşandı, çözümlenmemiş ne var.\n"
-        "Spesifik ol — karakter isimlerini, stat değişimlerini ve kararları net yaz.\n\n"
+        "Şunları içer: kral/kraliçe ne kararlar aldı, hangi önemli "
+        "olay yaşandı, çözümlenmemiş ne var.\n"
+        "Spesifik ol — karakter isimlerini ve kararları net yaz.\n"
+        "ASLA sayı, yüzde, stats değeri yazma.\n"
+        "Sadece hikaye ve karar odaklı yaz.\n\n"
         f"{conversation_text}"
     )
 

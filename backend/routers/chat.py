@@ -223,7 +223,8 @@ async def chat_endpoint(request: Request):
         if full_text:
             conversation.append({"role": "assistant", "content": full_text})
 
-        if len(full_text) > 200:
+        conv_len = _user_message_count(conversation)
+        if len(full_text) > 200 and conv_len >= 6:
             summary = await generate_summary(conversation)
             if summary.strip():
                 await save_memory(sid, char_id, summary.strip())
@@ -245,7 +246,6 @@ async def chat_endpoint(request: Request):
             except Exception as e:
                 logger.error(f"pending_buttons save error: {e}")
 
-        conv_len = _user_message_count(conversation)
         if conv_len % 5 == 0:
             event = check_world_events(sid)
             if event and event.get("narrator_injection"):
